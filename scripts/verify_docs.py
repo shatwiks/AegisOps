@@ -18,6 +18,7 @@ DOCS_TO_CHECK = [
     REPO_ROOT / "docs" / "SECURITY.md",
     REPO_ROOT / "docs" / "RUNBOOK.md",
     REPO_ROOT / "docs" / "VERIFICATION_REPORT.md",
+    REPO_ROOT / "docs" / "PROJECT_FULL_REPORT.md",
     REPO_ROOT / "docs" / "SHOWCASE_GUIDE.md",
     REPO_ROOT / "docs" / "SHOWCASE_TEST_REPORT.md",
     REPO_ROOT / "docs" / "FILE_MAP.md",
