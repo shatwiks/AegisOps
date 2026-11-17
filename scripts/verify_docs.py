@@ -29,6 +29,12 @@ PATH_RE = re.compile(
     r"`((?:backend|frontend|services|infra|chaos|runbooks|scripts|docs|\.planning|\.github)/[A-Za-z0-9_.\-/{}*]+)`"
 )
 ENV_RE = re.compile(r"`(AEGISOPS_[A-Z0-9_]+)`")
+# Gitignored build/cache paths referenced in docs' "Excluded" notes need not exist on a fresh checkout
+IGNORED_DOC_PATHS = {
+    "frontend/node_modules/",
+    "frontend/dist/",
+    "infra/terraform/.terraform/",
+}
 
 
 def main() -> int:
@@ -43,8 +49,8 @@ def main() -> int:
 
         for match in PATH_RE.finditer(text):
             rel = match.group(1)
-            # Skip glob/brace placeholders intentionally used for grouping
-            if any(ch in rel for ch in ("*", "{", "}")):
+            # Skip glob/brace placeholders and intentionally excluded build/cache paths
+            if any(ch in rel for ch in ("*", "{", "}")) or rel in IGNORED_DOC_PATHS:
                 continue
             target = REPO_ROOT / rel
             if not target.exists():
