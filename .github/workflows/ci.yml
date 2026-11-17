@@ -6,9 +6,17 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   backend-and-frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -74,14 +82,30 @@ jobs:
 
       - name: Enable pgvector extension & run Alembic migrations
         run: |
-          if command -v psql >/dev/null 2>&1; then
-            PGPASSWORD=ci_local_pg_password_123 psql -h 127.0.0.1 -p 55432 -U aegisops -d aegisops -c "CREATE EXTENSION IF NOT EXISTS vector;"
-          fi
+          .venv/bin/python - <<'PY'
+          import asyncio, asyncpg
+          async def init():
+              for attempt in range(10):
+                  try:
+                      conn = await asyncpg.connect("postgresql://aegisops:ci_local_pg_password_123@127.0.0.1:55432/aegisops")
+                      try:
+                          await conn.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+                          await conn.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto;")
+                      finally:
+                          await conn.close()
+                      return
+                  except Exception:
+                      if attempt == 9:
+                          raise
+                      await asyncio.sleep(2)
+          asyncio.run(init())
+          PY
           cd backend && ../.venv/bin/alembic upgrade head
           cd .. && .venv/bin/python -m app.seed.cmdb_seed
 
-      - name: Lint, Typecheck & Verify Docs
+      - name: Lint, Typecheck, Workflow YAML & Docs Check
         run: |
+          .venv/bin/python -c "import glob, yaml; [yaml.safe_load(open(f, encoding='utf-8')) for f in glob.glob('.github/workflows/*.yml')]; print('Workflow YAML valid')"
           .venv/bin/ruff check --config backend/pyproject.toml backend
           .venv/bin/mypy --config-file backend/pyproject.toml backend/app
           .venv/bin/python scripts/verify_docs.py

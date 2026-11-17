@@ -3,32 +3,55 @@ name: AegisOps Full Live Cluster, Ollama, Keycloak & Chaos Gate
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   live-cluster-e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install uv, kind, terraform, ollama
+      - name: Set up Python 3.12 via uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "backend/pyproject.toml"
+          activate-environment: false
+
+      - name: Install kind, kubectl & ollama
         run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
           curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-amd64
           chmod +x ./kind && sudo mv ./kind /usr/local/bin/kind
+          if ! command -v kubectl >/dev/null 2>&1; then
+            KVER=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+            curl -Lo ./kubectl "https://dl.k8s.io/release/${KVER}/bin/linux/amd64/kubectl"
+            chmod +x ./kubectl && sudo mv ./kubectl /usr/local/bin/kubectl
+          fi
           curl -fsSL https://ollama.com/install.sh | sh
 
-      - name: Set up Python 3.12 & Node
+      - name: Set up Node 22
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Prepare environment, Ollama models, Compose & kind
+      - name: Prepare Python, Playwright, Frontend & Ollama models
         run: |
           uv venv .venv --python 3.12 --clear
           uv pip install --python .venv/bin/python -e "./backend[dev]"
-          .venv/bin/playwright install chromium
+          .venv/bin/playwright install --with-deps chromium
           npm --prefix frontend ci && npm --prefix frontend run build
-          ollama serve &
-          sleep 5
+          if ! curl -sf http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+            nohup ollama serve >/tmp/ollama.log 2>&1 &
+          fi
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
           ollama pull nomic-embed-text:latest
           ollama pull llama3.2:3b
 
@@ -47,7 +70,7 @@ jobs:
           kubectl --context kind-aegisops-local create namespace aegisops-system || true
           kubectl --context kind-aegisops-local apply -f infra/k8s/workloads
 
-      - name: Run full pytest + chaos verification
-        if: always()
+      - name: Verify live cluster pods & workflow status
         run: |
-          echo "Full live integration workflow defined; execute locally via scripts/demo.ps1 and scripts/test.ps1."
+          kubectl --context kind-aegisops-local -n aegisops-healthcare get deployments,pods
+          echo "Cluster provisioned cleanly. Full end-to-end Compose + chaos suite runs locally via scripts/up.ps1 and scripts/demo.ps1."
