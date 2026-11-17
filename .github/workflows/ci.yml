@@ -1,0 +1,96 @@
+name: AegisOps CI (Fast Checks & DB/Redis Integration)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-and-frontend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: aegisops
+          POSTGRES_PASSWORD: ci_local_pg_password_123
+          POSTGRES_DB: aegisops
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd="pg_isready -U aegisops -d aegisops"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=12
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 56379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=10
+
+    env:
+      AEGISOPS_ENV: test
+      AEGISOPS_DATABASE_URL: postgresql+asyncpg://aegisops:ci_local_pg_password_123@127.0.0.1:55432/aegisops
+      AEGISOPS_REDIS_URL: redis://127.0.0.1:56379/0
+      AEGISOPS_WEBHOOK_HMAC_SECRET: ci-hmac-secret-at-least-32-chars-long
+      AEGISOPS_WEBHOOK_BEARER_TOKEN: ci-bearer-token-at-least-32-chars-long
+      AEGISOPS_TOTP_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      AEGISOPS_SESSION_SECRET: ci-session-secret-at-least-32-chars-long
+      PYTHONPATH: ${{ github.workspace }}/backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12 via uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        run: |
+          uv venv .venv --python 3.12
+          uv pip install --python .venv/bin/python -e "./backend[dev]"
+
+      - name: Set up Node 22 & build frontend
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install & build frontend
+        run: |
+          npm --prefix frontend ci
+          npm --prefix frontend run typecheck
+          npm --prefix frontend run build
+
+      - name: Enable pgvector extension & run Alembic migrations
+        run: |
+          PGPASSWORD=ci_local_pg_password_123 psql -h 127.0.0.1 -p 55432 -U aegisops -d aegisops -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          cd backend && ../.venv/bin/alembic upgrade head
+          cd .. && .venv/bin/python -m app.seed.cmdb_seed
+
+      - name: Lint & Typecheck Backend
+        run: |
+          .venv/bin/ruff check --config backend/pyproject.toml backend
+          .venv/bin/mypy --config-file backend/pyproject.toml backend/app
+
+      - name: Run unit & Postgres/Redis integration tests
+        run: |
+          .venv/bin/pytest -c backend/pyproject.toml \
+            backend/tests/unit \
+            backend/tests/integration/test_foundation_health.py \
+            backend/tests/integration/test_cmdb_graph.py \
+            backend/tests/integration/test_alertmanager_webhook.py \
+            backend/tests/integration/test_locks_and_reconciler.py \
+            backend/tests/integration/test_recovery_watchdog.py \
+            -v
+
+      - name: Secret pattern scan on tracked files
+        run: |
+          ! git grep -nE "BEGIN (RSA|EC|OPENSSH) PRIVATE KEY|sk-lf-aegisops-local|otpauth://totp/" -- ':!.env.example'

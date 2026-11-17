@@ -1,0 +1,219 @@
+{
+  "executed_at": "2026-11-17T03:59:32.424394+00:00",
+  "recovery_window_seconds": 60,
+  "scenarios": [
+    {
+      "scenario": "3_provider_directory_cpu_load_scale_out",
+      "control_interval_probe_latency_sec": 0.821,
+      "incident": {
+        "id": "de6a51ef-41ef-4387-914a-71166cd9c677",
+        "dedup_key": "ProviderDirectoryHighLatencyCpu:provider-directory:57268b00ecee06d7",
+        "alert_fingerprint": "57268b00ecee06d7",
+        "alertname": "ProviderDirectoryHighLatencyCpu",
+        "title": "[P3] ProviderDirectoryHighLatencyCpu on provider-directory",
+        "summary_sanitized": "ERR_CPU_SATURATION_P95_SLOW: provider-directory p95 response latency exceeded 500ms under active traffic.",
+        "asset_slug": "provider-directory",
+        "unknown_asset_identifier": null,
+        "severity": "P3",
+        "severity_explanation": {
+          "reason": "Root asset 'provider-directory' (TIER_3_STANDARD) degraded with 1 downstream consumer(s) and alert severity 'warning'.",
+          "policy_rule": "CONTAINED_SERVICE_DEGRADATION",
+          "alert_severity": "warning",
+          "root_asset_slug": "provider-directory",
+          "downstream_slugs": [
+            "member-portal-gateway"
+          ],
+          "root_criticality": "TIER_3_STANDARD",
+          "unique_downstream_count": 1
+        },
+        "state": "RESOLVED",
+        "proposed_playbook_id": "replica_scale_out_bounded",
+        "proposed_parameters": {
+          "target_replicas": 3
+        },
+        "confidence_score": 0.8846949498866107,
+        "refusal_reason": null,
+        "diagnosis": {
+          "proposal": {
+            "reasoning": "Symptoms match a permitted playbook for the target service. No refusal recommended.",
+            "evidence_quotes": [
+              "p95 request latency > 0.8s or cpu_pressure_active == 1; current replicas < max_replicas (4)"
+            ],
+            "cited_runbook_ids": [
+              "rb-003-provider-directory-cpu-latency"
+            ],
+            "uncertainty_level": "LOW",
+            "root_cause_summary": "ERR_CPU_SATURATION_P95_SLOW: provider-directory p95 response latency exceeded 500ms under active traffic.",
+            "proposed_parameters": {},
+            "refusal_recommended": false,
+            "proposed_playbook_id": "replica_scale_out_bounded"
+          },
+          "citations": [
+            {
+              "slug": "rb-003-provider-directory-cpu-latency",
+              "title": "RB-003: Provider Directory Sustained CPU Saturation and Latency Spike",
+              "doc_type": "RUNBOOK",
+              "rrf_score": 0.016393,
+              "lexical_score": 0.0,
+              "vector_similarity": 0.8847
+            },
+            {
+              "slug": "rb-008-coredns-resolution-errors",
+              "title": "RB-008: Cluster CoreDNS Lookup Latency and NXDOMAIN Spike",
+              "doc_type": "RUNBOOK",
+              "rrf_score": 0.016129,
+              "lexical_score": 0.0,
+              "vector_similarity": 0.7041
+            },
+            {
+              "slug": "rb-010-provider-directory-redis-timeout",
+              "title": "RB-010: Provider Directory Redis Cache Connection Timeout",
+              "doc_type": "RUNBOOK",
+              "rrf_score": 0.015873,
+              "lexical_score": 0.0,
+              "vector_similarity": 0.6825
+            },
+            {
+              "slug": "rb-001-claims-processor-oom",
+              "title": "RB-001: Claims Processor OOMKilled and Sustained Memory Pressure",
+              "doc_type": "RUNBOOK",
+              "rrf_score": 0.015625,
+              "lexical_score": 0.0,
+              "vector_similarity": 0.6525
+            },
+            {
+              "slug": "rb-002-eligibility-db-pool-exhaustion",
+              "title": "RB-002: Eligibility API Database Connection Pool Exhaustion",
+              "doc_type": "RUNBOOK",
+              "rrf_score": 0.015385,
+              "lexical_score": 0.0,
+              "vector_similarity": 0.6439
+            }
+          ],
+          "policy_checks": {
+            "alertname": "ProviderDirectoryHighLatencyCpu",
+            "rrf_score": 0.016393,
+            "known_asset": true,
+            "summary_len": 105,
+            "lexical_score": 0.0,
+            "server_risk_tier": "LOW",
+            "vector_similarity": 0.8847,
+            "service_applicability": true
+          }
+        },
+        "redaction_stats": {
+          "redactions": {},
+          "total_redactions": 0,
+          "scrubber_failed_fallback": false,
+          "dropped_unallowlisted_keys": 0
+        },
+        "fault_onset_at": "2026-11-17T03:56:09.207000+00:00",
+        "detected_at": "2026-11-17T03:56:09.207000+00:00",
+        "ingested_at": "2026-11-17T03:56:12.461001+00:00",
+        "triaged_at": "2026-11-17T03:56:39.056818+00:00",
+        "approved_at": null,
+        "mutated_at": "2026-11-17T03:56:56.201647+00:00",
+        "first_recovered_at": "2026-11-17T03:58:20.565401+00:00",
+        "resolved_at": "2026-11-17T03:59:27.428289+00:00",
+        "version_id": 6,
+        "updated_at": "2026-11-17T03:59:27.428289+00:00"
+      },
+      "executions": [
+        {
+          "id": "dedc5180-3a2d-4e76-8568-1c3468311ab3",
+          "playbook_id": "replica_scale_out_bounded",
+          "status": "SUCCEEDED",
+          "before_state": {
+            "uid": "848eab60-bd48-4e5c-ad9a-f86678a40bd7",
+            "image": "aegisops/provider-directory:v1.0.0-good",
+            "cluster": "kind-aegisops-local",
+            "replicas": 1,
+            "namespace": "aegisops-healthcare",
+            "deployment": "provider-directory",
+            "generation": 22,
+            "memory_limit": "256Mi",
+            "restarted_at": "2026-11-17T07:35:37+05:30",
+            "ready_replicas": 1,
+            "total_replicas": 1,
+            "resource_version": "15337",
+            "updated_replicas": 1,
+            "available_replicas": 1,
+            "observed_generation": 22
+          },
+          "after_state": {
+            "uid": "848eab60-bd48-4e5c-ad9a-f86678a40bd7",
+            "image": "aegisops/provider-directory:v1.0.0-good",
+            "cluster": "kind-aegisops-local",
+            "replicas": 3,
+            "namespace": "aegisops-healthcare",
+            "deployment": "provider-directory",
+            "generation": 23,
+            "memory_limit": "256Mi",
+            "restarted_at": "2026-11-17T07:35:37+05:30",
+            "ready_replicas": 3,
+            "total_replicas": 3,
+            "resource_version": "20124",
+            "updated_replicas": 3,
+            "available_replicas": 3,
+            "observed_generation": 23
+          },
+          "error": null,
+          "started_at": "2026-11-17T03:56:39.203617+00:00",
+          "completed_at": "2026-11-17T03:56:56.173787+00:00"
+        }
+      ]
+    }
+  ],
+  "measured_metrics_summary": {
+    "total_incidents": 56,
+    "state_counts": {
+      "RESOLVED": 14,
+      "FAILED": 42
+    },
+    "total_phi_pii_redactions": 70,
+    "mttd_unavailable_count": 23,
+    "timings_seconds": {
+      "mttd": {
+        "sample_count": 33,
+        "mean": 0.0,
+        "p50": 0.0,
+        "p95": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "triage_latency": {
+        "sample_count": 24,
+        "mean": 356.66,
+        "p50": 11.51,
+        "p95": 82.5,
+        "min": 6.4,
+        "max": 4067.12
+      },
+      "action_latency": {
+        "sample_count": 17,
+        "mean": 19.74,
+        "p50": 24.21,
+        "p95": 36.87,
+        "min": 0.44,
+        "max": 41.62
+      },
+      "verification_window": {
+        "sample_count": 14,
+        "mean": 64.23,
+        "p50": 64.01,
+        "p95": 67.16,
+        "min": 61.52,
+        "max": 67.99
+      },
+      "mttr_end_to_end": {
+        "sample_count": 14,
+        "mean": 437.66,
+        "p50": 137.31,
+        "p95": 221.75,
+        "min": 121.19,
+        "max": 4133.58
+      }
+    },
+    "measurement_note": "Full confirmed MTTR includes the configured sustained recovery verification window (60s default); timestamps are computed solely from observed persisted samples."
+  }
+}

@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claims-processor
+  namespace: aegisops-healthcare
+  labels:
+    app: claims-processor
+    aegisops.io/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: claims-processor
+  template:
+    metadata:
+      labels:
+        app: claims-processor
+    spec:
+      containers:
+        - name: claims-processor
+          image: aegisops/claims-processor:v1.0.0-good
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8082
+          env:
+            - name: DEMO_POSTGRES_DSN
+              value: postgresql://demo:demopass@postgres-claims-db:5432/claims_demo
+            - name: DEMO_REDIS_URL
+              value: redis://redis-session-cache:6379/0
+            - name: ELIGIBILITY_API_URL
+              value: http://eligibility-api:8081
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://host.docker.internal:55318
+            - name: POD_MEMORY_LIMIT_BYTES
+              valueFrom:
+                resourceFieldRef:
+                  containerName: claims-processor
+                  resource: limits.memory
+            - name: DEMO_INTERNAL_FAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: aegisops-demo-fault-secret
+                  key: token
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8082
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8082
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 300m
+              memory: 192Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: claims-processor
+  namespace: aegisops-healthcare
+spec:
+  type: NodePort
+  selector:
+    app: claims-processor
+  ports:
+    - port: 8082
+      targetPort: 8082
+      nodePort: 30082

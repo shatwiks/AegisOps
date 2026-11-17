@@ -1,0 +1,79 @@
+=== AegisOps Phase 1 CMDB, Incidents & Privacy Gate ===
+Timestamp: 2026-11-17T04:59:41.6586157+05:30
+powershell : INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+At line:9 char:7
++     { powershell -ExecutionPolicy Bypass -File .\scripts\migrate.ps1  ...
++       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (INFO  [alembic....PostgresqlImpl.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+
+[AegisOps] Seeding CMDB topology...
+Seeded CMDB topology cleanly: {'assets': 8, 'dependencies': 9}
+
+[AegisOps] Seeding CMDB topology...
+Seeded CMDB topology cleanly: {'assets': 8, 'dependencies': 9}
+
+REDACTION_CORPUS: {"positive_samples": 10, "negative_samples": 4, "true_positives": 10, "false_negatives": 0, "true_negatives": 4, "false_positives": 0, "precision": 1.0, "recall": 1.0, "disclaimer": "Measured on synthetic test corpus; does not imply HIPAA or zero-leakage guarantee."}
+
+All checks passed!
+
+Success: no issues found in 14 source files
+
+============================= test session starts =============================
+platform win32 -- Python 3.12.14, pytest-8.4.2, pluggy-1.7.0 -- D:\PROJECTS\AegisOps An Autonomous AIOps, CMDB Blast-Radius & Self-Healing Kubernetes Control\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\PROJECTS\AegisOps An Autonomous AIOps, CMDB Blast-Radius & Self-Healing Kubernetes Control\backend
+configfile: pyproject.toml
+plugins: anyio-4.16.0, langsmith-0.14.17, asyncio-0.26.0
+asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 42 items
+
+backend\tests\integration\test_alertmanager_webhook.py::test_webhook_auth_ssrf_scrubbing_dedup_and_append_only_audit PASSED [  2%]
+backend\tests\integration\test_cmdb_graph.py::test_seed_idempotency_and_directed_blast_radius PASSED [  4%]
+backend\tests\integration\test_cmdb_graph.py::test_cycle_safe_traversal_and_duplicate_names_across_namespaces PASSED [  7%]
+backend\tests\integration\test_foundation_health.py::test_healthz_and_readyz_against_real_postgres_and_redis PASSED [  9%]
+backend\tests\unit\test_config.py::test_valid_settings_succeed PASSED    [ 11%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override0] PASSED [ 14%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override1] PASSED [ 16%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override2] PASSED [ 19%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override3] PASSED [ 21%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override4] PASSED [ 23%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override5] PASSED [ 26%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override6] PASSED [ 28%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override7] PASSED [ 30%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override8] PASSED [ 33%]
+backend\tests\unit\test_scrubber.py::test_scrub_text_positives_and_negatives PASSED [ 35%]
+backend\tests\unit\test_scrubber.py::test_scrub_nested_mixed_case_and_multiline PASSED [ 38%]
+backend\tests\unit\test_scrubber.py::test_scrub_value_recursive_dict_list PASSED [ 40%]
+backend\tests\unit\test_scrubber.py::test_scrubber_fail_closed_never_forwards_raw_data PASSED [ 42%]
+backend\tests\unit\test_scrubber.py::test_redaction_corpus_benchmark PASSED [ 45%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[OPEN-TRIAGING] PASSED [ 47%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[OPEN-ESCALATED] PASSED [ 50%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[TRIAGING-READY_TO_REMEDIATE] PASSED [ 52%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[TRIAGING-AWAITING_APPROVAL] PASSED [ 54%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[TRIAGING-ESCALATED] PASSED [ 57%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[AWAITING_APPROVAL-READY_TO_REMEDIATE] PASSED [ 59%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[AWAITING_APPROVAL-ESCALATED] PASSED [ 61%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[READY_TO_REMEDIATE-REMEDIATING] PASSED [ 64%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[REMEDIATING-VERIFYING] PASSED [ 66%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[VERIFYING-RESOLVED] PASSED [ 69%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[VERIFYING-ESCALATED] PASSED [ 71%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[VERIFYING-FAILED] PASSED [ 73%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[OPEN-RESOLVED] PASSED [ 76%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[OPEN-REMEDIATING] PASSED [ 78%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[OPEN-VERIFYING] PASSED [ 80%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[TRIAGING-RESOLVED] PASSED [ 83%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[AWAITING_APPROVAL-REMEDIATING] PASSED [ 85%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[AWAITING_APPROVAL-RESOLVED] PASSED [ 88%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[READY_TO_REMEDIATE-RESOLVED] PASSED [ 90%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[REMEDIATING-RESOLVED] PASSED [ 92%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[RESOLVED-OPEN] PASSED [ 95%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[RESOLVED-TRIAGING] PASSED [ 97%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[FAILED-REMEDIATING] PASSED [100%]
+
+============================= 42 passed in 6.17s ==============================
+

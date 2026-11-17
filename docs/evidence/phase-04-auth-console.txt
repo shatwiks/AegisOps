@@ -1,0 +1,44 @@
+=== AegisOps Phase 4 Identity, Step-Up Approval & SRE Console Gate ===
+Timestamp: 2026-11-17T06:14:00.4767374+05:30
+FastAPI /readyz: HTTP 200
+
+--- ruff ---
+All checks passed!
+
+--- mypy ---
+Success: no issues found in 41 source files
+
+--- frontend_typecheck ---
+
+> aegisops-console@0.1.0 typecheck
+> node ./node_modules/typescript/bin/tsc --noEmit
+
+--- frontend_build ---
+
+> aegisops-console@0.1.0 build
+> node ./node_modules/typescript/bin/tsc -b && node ./node_modules/vite/bin/vite.js build
+
+[36mvite v6.0.11 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 59 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                 [39m[1m[2m  0.43 kB[22m[1m[22m[2m │ gzip:   0.30 kB[22m
+[2mdist/[22m[35massets/index-CAssufvO.css  [39m[1m[2m 20.37 kB[22m[1m[22m[2m │ gzip:   4.06 kB[22m
+[2mdist/[22m[36massets/index-C2KZWzP2.js   [39m[1m[2m357.64 kB[22m[1m[22m[2m │ gzip: 116.82 kB[22m
+[32m✓ built in 5.17s[39m
+
+--- pytest_phase4 ---
+============================= test session starts =============================
+platform win32 -- Python 3.12.14, pytest-8.4.2, pluggy-1.7.0 -- D:\PROJECTS\AegisOps An Autonomous AIOps, CMDB Blast-Radius & Self-Healing Kubernetes Control\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\PROJECTS\AegisOps An Autonomous AIOps, CMDB Blast-Radius & Self-Healing Kubernetes Control\backend
+configfile: pyproject.toml
+plugins: anyio-4.16.0, langsmith-0.14.17, asyncio-0.26.0
+asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 2 items
+
+backend\tests\integration\test_auth_and_approvals.py::test_oidc_rbac_totp_replay_drift_and_concurrent_approval_race PASSED [ 50%]
+backend\tests\e2e\test_browser_console.py::test_browser_oidc_pkce_login_topology_and_metrics PASSED [100%]
+
+============================= 2 passed in 26.95s ==============================

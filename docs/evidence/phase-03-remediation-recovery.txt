@@ -1,0 +1,86 @@
+=== AegisOps Phase 3 Remediation, K8s SDK & Watchdog Gate ===
+Timestamp: 2026-11-17T05:53:40.8289924+05:30
+NAME                                   READY   STATUS        RESTARTS        AGE     IP            NODE                           NOMINATED NODE   READINESS GATES
+claims-processor-9f74754fd-fp2vz       1/1     Running       1 (5m44s ago)   6m35s   10.244.0.5    aegisops-local-control-plane   <none>           <none>
+eligibility-api-67f8bdcfc-7xgtl        1/1     Running       2 (5m33s ago)   6m35s   10.244.0.6    aegisops-local-control-plane   <none>           <none>
+postgres-claims-db-646446b798-x9k92    1/1     Running       0               6m35s   10.244.0.7    aegisops-local-control-plane   <none>           <none>
+provider-directory-6554fbf487-2lcrl    1/1     Terminating   1 (105s ago)    2m35s   10.244.0.11   aegisops-local-control-plane   <none>           <none>
+provider-directory-6554fbf487-d7t6j    1/1     Running       1 (5m43s ago)   6m35s   10.244.0.8    aegisops-local-control-plane   <none>           <none>
+redis-session-cache-548db5d648-mnfqx   1/1     Running       0               6m34s   10.244.0.9    aegisops-local-control-plane   <none>           <none>
+
+NAME                                  READY   STATUS    RESTARTS   AGE     IP            NODE                           NOMINATED NODE   READINESS GATES
+kube-state-metrics-69b4c78cb7-zb6xx   1/1     Running   0          6m35s   10.244.0.10   aegisops-local-control-plane   <none>           <none>
+
+59 files left unchanged
+
+All checks passed!
+
+Success: no issues found in 41 source files
+
+============================= test session starts =============================
+platform win32 -- Python 3.12.14, pytest-8.4.2, pluggy-1.7.0 -- D:\PROJECTS\AegisOps An Autonomous AIOps, CMDB Blast-Radius & Self-Healing Kubernetes Control\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\PROJECTS\AegisOps An Autonomous AIOps, CMDB Blast-Radius & Self-Healing Kubernetes Control\backend
+configfile: pyproject.toml
+plugins: anyio-4.16.0, langsmith-0.14.17, asyncio-0.26.0
+asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 55 items
+
+backend\tests\unit\test_config.py::test_valid_settings_succeed PASSED    [  1%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override0] PASSED [  3%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override1] PASSED [  5%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override2] PASSED [  7%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override3] PASSED [  9%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override4] PASSED [ 10%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override5] PASSED [ 12%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override6] PASSED [ 14%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override7] PASSED [ 16%]
+backend\tests\unit\test_config.py::test_invalid_settings_rejected[override8] PASSED [ 18%]
+backend\tests\unit\test_policy_refusal.py::test_policy_allows_eligible_low_risk_remediation PASSED [ 20%]
+backend\tests\unit\test_policy_refusal.py::test_policy_gates_high_risk_rollback_and_ignores_llm_image_tag PASSED [ 21%]
+backend\tests\unit\test_policy_refusal.py::test_policy_refuses_unknown_asset_malformed_model_and_db_failover PASSED [ 23%]
+backend\tests\unit\test_policy_refusal.py::test_policy_refuses_low_similarity_and_out_of_bounds_params PASSED [ 25%]
+backend\tests\unit\test_scrubber.py::test_scrub_text_positives_and_negatives PASSED [ 27%]
+backend\tests\unit\test_scrubber.py::test_scrub_nested_mixed_case_and_multiline PASSED [ 29%]
+backend\tests\unit\test_scrubber.py::test_scrub_value_recursive_dict_list PASSED [ 30%]
+backend\tests\unit\test_scrubber.py::test_scrubber_fail_closed_never_forwards_raw_data PASSED [ 32%]
+backend\tests\unit\test_scrubber.py::test_redaction_corpus_benchmark PASSED [ 34%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[OPEN-TRIAGING] PASSED [ 36%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[OPEN-ESCALATED] PASSED [ 38%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[TRIAGING-READY_TO_REMEDIATE] PASSED [ 40%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[TRIAGING-AWAITING_APPROVAL] PASSED [ 41%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[TRIAGING-ESCALATED] PASSED [ 43%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[AWAITING_APPROVAL-READY_TO_REMEDIATE] PASSED [ 45%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[AWAITING_APPROVAL-ESCALATED] PASSED [ 47%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[READY_TO_REMEDIATE-REMEDIATING] PASSED [ 49%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[REMEDIATING-VERIFYING] PASSED [ 50%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[VERIFYING-RESOLVED] PASSED [ 52%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[VERIFYING-ESCALATED] PASSED [ 54%]
+backend\tests\unit\test_state_machine.py::test_valid_transitions_allowed[VERIFYING-FAILED] PASSED [ 56%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[OPEN-RESOLVED] PASSED [ 58%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[OPEN-REMEDIATING] PASSED [ 60%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[OPEN-VERIFYING] PASSED [ 61%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[TRIAGING-RESOLVED] PASSED [ 63%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[AWAITING_APPROVAL-REMEDIATING] PASSED [ 65%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[AWAITING_APPROVAL-RESOLVED] PASSED [ 67%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[READY_TO_REMEDIATE-RESOLVED] PASSED [ 69%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[REMEDIATING-RESOLVED] PASSED [ 70%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[RESOLVED-OPEN] PASSED [ 72%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[RESOLVED-TRIAGING] PASSED [ 74%]
+backend\tests\unit\test_state_machine.py::test_illegal_transitions_rejected[FAILED-REMEDIATING] PASSED [ 76%]
+backend\tests\integration\test_foundation_health.py::test_healthz_and_readyz_against_real_postgres_and_redis PASSED [ 78%]
+backend\tests\integration\test_cmdb_graph.py::test_seed_idempotency_and_directed_blast_radius PASSED [ 80%]
+backend\tests\integration\test_cmdb_graph.py::test_cycle_safe_traversal_and_duplicate_names_across_namespaces PASSED [ 81%]
+backend\tests\integration\test_alertmanager_webhook.py::test_webhook_auth_ssrf_scrubbing_dedup_and_append_only_audit PASSED [ 83%]
+backend\tests\integration\test_hybrid_rag.py::test_runbook_seed_and_hybrid_lexical_advantage PASSED [ 85%]
+backend\tests\integration\test_hybrid_rag.py::test_live_ollama_embedding_dimensions PASSED [ 87%]
+backend\tests\integration\test_ollama_diagnosis.py::test_live_ollama_diagnosis_and_injection_refusal PASSED [ 89%]
+backend\tests\integration\test_ollama_diagnosis.py::test_mocked_ollama_malformed_json_and_timeout_refusal PASSED [ 90%]
+backend\tests\integration\test_locks_and_reconciler.py::test_redis_lease_ownership_contention_and_loss PASSED [ 92%]
+backend\tests\integration\test_locks_and_reconciler.py::test_outbox_skip_locked_and_expired_lease_recovery PASSED [ 94%]
+backend\tests\integration\test_k8s_remediation_kind.py::test_k8s_guards_rbac_live_scale_and_crash_reconciliation PASSED [ 96%]
+backend\tests\integration\test_recovery_watchdog.py::test_watchdog_refuses_readiness_when_metrics_missing_or_unhealthy PASSED [ 98%]
+backend\tests\integration\test_recovery_watchdog.py::test_watchdog_requires_unbroken_sustained_healthy_window PASSED [100%]
+
+======================== 55 passed in 79.06s (0:01:19) ========================
+

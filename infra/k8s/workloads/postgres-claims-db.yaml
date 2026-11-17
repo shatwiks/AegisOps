@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-claims-db
+  namespace: aegisops-healthcare
+  labels:
+    app: postgres-claims-db
+    aegisops.io/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-claims-db
+  template:
+    metadata:
+      labels:
+        app: postgres-claims-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_USER
+              value: demo
+            - name: POSTGRES_PASSWORD
+              value: demopass
+            - name: POSTGRES_DB
+              value: claims_demo
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "demo", "-d", "claims_demo"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-claims-db
+  namespace: aegisops-healthcare
+spec:
+  selector:
+    app: postgres-claims-db
+  ports:
+    - port: 5432
+      targetPort: 5432

@@ -1,0 +1,23 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: aegisops-local
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.32.2
+    extraPortMappings:
+      - containerPort: 30081
+        hostPort: 58081
+        listenAddress: "127.0.0.1"
+        protocol: TCP
+      - containerPort: 30082
+        hostPort: 58082
+        listenAddress: "127.0.0.1"
+        protocol: TCP
+      - containerPort: 30083
+        hostPort: 58083
+        listenAddress: "127.0.0.1"
+        protocol: TCP
+      - containerPort: 30084
+        hostPort: 58084
+        listenAddress: "127.0.0.1"
+        protocol: TCP

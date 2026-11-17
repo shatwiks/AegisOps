@@ -1,0 +1,101 @@
+{
+  "realm": "aegisops",
+  "enabled": true,
+  "displayName": "AegisOps Local SRE Identity",
+  "sslRequired": "none",
+  "accessTokenLifespan": 1800,
+  "roles": {
+    "realm": [
+      { "name": "viewer", "description": "Read-only incident and topology viewer" },
+      { "name": "operator", "description": "Triage/incident operator without high-risk MFA approval" },
+      { "name": "approver", "description": "Privileged SRE approver permitted to execute TOTP step-up approvals" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "aegisops-console",
+      "name": "AegisOps SRE Console",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://127.0.0.1:55173/*",
+        "http://localhost:55173/*"
+      ],
+      "webOrigins": [
+        "http://127.0.0.1:55173",
+        "http://localhost:55173"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://127.0.0.1:55173/*##http://localhost:55173/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "aegisops-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "aegisops-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "realm-roles-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "viewer@aegisops.local",
+      "email": "viewer@aegisops.local",
+      "firstName": "Aegis",
+      "lastName": "Viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "__AEGISOPS_DEMO_USER_PASSWORD__", "temporary": false }
+      ],
+      "realmRoles": ["viewer"]
+    },
+    {
+      "username": "operator@aegisops.local",
+      "email": "operator@aegisops.local",
+      "firstName": "Aegis",
+      "lastName": "Operator",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "__AEGISOPS_DEMO_USER_PASSWORD__", "temporary": false }
+      ],
+      "realmRoles": ["viewer", "operator"]
+    },
+    {
+      "username": "approver@aegisops.local",
+      "email": "approver@aegisops.local",
+      "firstName": "Aegis",
+      "lastName": "Approver",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "__AEGISOPS_DEMO_USER_PASSWORD__", "temporary": false }
+      ],
+      "realmRoles": ["viewer", "operator", "approver"]
+    }
+  ]
+}

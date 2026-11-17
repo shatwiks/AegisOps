@@ -1,0 +1,67 @@
+[project]
+name = "aegisops-backend"
+version = "0.1.0"
+description = "AegisOps Autonomous AIOps, CMDB Blast-Radius & Self-Healing Kubernetes Control Plane"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115.6,<0.116.0",
+    "uvicorn[standard]>=0.34.0,<0.35.0",
+    "pydantic>=2.10.4,<2.12.0",
+    "pydantic-settings>=2.7.1,<2.9.0",
+    "sqlalchemy[asyncio]>=2.0.36,<2.1.0",
+    "asyncpg>=0.30.0,<0.31.0",
+    "psycopg[binary]>=3.2.4,<3.3.0",
+    "alembic>=1.14.0,<1.16.0",
+    "pgvector>=0.3.6,<0.4.0",
+    "redis>=5.2.1,<6.0.0",
+    "httpx>=0.28.1,<0.29.0",
+    "ollama>=0.4.7,<0.6.0",
+    "kubernetes>=31.0.0,<33.0.0",
+    "pyjwt[crypto]>=2.10.1,<2.12.0",
+    "cryptography>=44.0.0,<46.0.0",
+    "pyotp>=2.9.0,<3.0.0",
+    "prometheus-client>=0.21.1,<0.23.0",
+    "opentelemetry-api>=1.29.0,<1.32.0",
+    "opentelemetry-sdk>=1.29.0,<1.32.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.29.0,<1.32.0",
+    "opentelemetry-instrumentation-fastapi>=0.50b0,<0.53b0",
+    "python-multipart>=0.0.20,<0.1.0",
+    "openai>=1.60.0,<2.0.0",
+    "langfuse>=2.59.0,<3.0.0",
+    "ragas>=0.2.12,<0.3.0",
+    "datasets>=3.2.0,<4.0.0",
+    "pyyaml>=6.0.2,<7.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.4,<9.0.0",
+    "pytest-asyncio>=0.25.2,<0.27.0",
+    "ruff>=0.9.3,<0.11.0",
+    "mypy>=1.14.1,<1.16.0",
+    "types-PyYAML>=6.0.12,<7.0.0",
+    "playwright>=1.49.1,<1.53.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501", "SIM117", "B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+ignore_missing_imports = true
+warn_unused_ignores = true
+disable_error_code = ["import-untyped"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]

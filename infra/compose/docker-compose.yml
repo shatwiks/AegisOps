@@ -1,0 +1,155 @@
+name: aegisops
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: aegisops-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aegisops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:-aegisops}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - aegisops_pgdata:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aegisops} -d ${POSTGRES_DB:-aegisops}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - aegisops_net
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: aegisops-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-56379}:6379"
+    volumes:
+      - aegisops_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - aegisops_net
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.114.0
+    container_name: aegisops-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    ports:
+      - "127.0.0.1:${OTEL_GRPC_PORT:-55317}:4317"
+      - "127.0.0.1:${OTEL_HTTP_PORT:-55318}:4318"
+    volumes:
+      - ./otel/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    profiles: ["obs", "full"]
+    networks:
+      - aegisops_net
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: aegisops-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-59090}:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - aegisops_promdata:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    profiles: ["obs", "full"]
+    networks:
+      - aegisops_net
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: aegisops-alertmanager
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    ports:
+      - "127.0.0.1:${ALERTMANAGER_PORT:-59093}:9093"
+    volumes:
+      - ./alertmanager/alertmanager.generated.yml:/etc/alertmanager/alertmanager.yml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    profiles: ["obs", "full"]
+    networks:
+      - aegisops_net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: aegisops-keycloak
+    restart: unless-stopped
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD must be set}
+      KC_HOSTNAME: http://127.0.0.1:${KEYCLOAK_PORT:-58080}
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-58080}:8080"
+    volumes:
+      - ./keycloak/realm-aegisops.generated.json:/opt/keycloak/data/import/realm-aegisops.json:ro
+    profiles: ["auth", "full"]
+    networks:
+      - aegisops_net
+
+  langfuse:
+    image: langfuse/langfuse:2
+    container_name: aegisops-langfuse
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aegisops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/aegisops_langfuse
+      NEXTAUTH_URL: http://127.0.0.1:${LANGFUSE_PORT:-53000}
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:?LANGFUSE_NEXTAUTH_SECRET must be set}
+      SALT: ${LANGFUSE_SALT:?LANGFUSE_SALT must be set}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:?LANGFUSE_ENCRYPTION_KEY must be set}
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+      LANGFUSE_INIT_ORG_ID: aegisops-org
+      LANGFUSE_INIT_ORG_NAME: AegisOps Local
+      LANGFUSE_INIT_PROJECT_ID: aegisops-proj
+      LANGFUSE_INIT_PROJECT_NAME: AegisOps AIOps
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-aegisops-local}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-aegisops-local}
+      LANGFUSE_INIT_USER_EMAIL: approver@aegisops.local
+      LANGFUSE_INIT_USER_NAME: Aegis Approver
+      LANGFUSE_INIT_USER_PASSWORD: ${KEYCLOAK_DEMO_USER_PASSWORD:?KEYCLOAK_DEMO_USER_PASSWORD must be set}
+    ports:
+      - "127.0.0.1:${LANGFUSE_PORT:-53000}:3000"
+    profiles: ["langfuse", "full"]
+    networks:
+      - aegisops_net
+
+volumes:
+  aegisops_pgdata:
+    name: aegisops_pgdata
+  aegisops_redisdata:
+    name: aegisops_redisdata
+  aegisops_promdata:
+    name: aegisops_promdata
+
+networks:
+  aegisops_net:
+    name: aegisops_net
+    driver: bridge

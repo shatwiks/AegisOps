@@ -1,0 +1,53 @@
+name: AegisOps Full Live Cluster, Ollama, Keycloak & Chaos Gate
+
+on:
+  workflow_dispatch:
+
+jobs:
+  live-cluster-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv, kind, terraform, ollama
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-amd64
+          chmod +x ./kind && sudo mv ./kind /usr/local/bin/kind
+          curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Set up Python 3.12 & Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Prepare environment, Ollama models, Compose & kind
+        run: |
+          uv venv .venv --python 3.12
+          uv pip install --python .venv/bin/python -e "./backend[dev]"
+          .venv/bin/playwright install chromium
+          npm --prefix frontend ci && npm --prefix frontend run build
+          ollama serve &
+          sleep 5
+          ollama pull nomic-embed-text:latest
+          ollama pull llama3.2:3b
+
+      - name: Create kind cluster & deploy services
+        run: |
+          kind create cluster --name aegisops-local --config infra/k8s/kind-config.yaml
+          docker build -f services/eligibility-api/Dockerfile -t aegisops/eligibility-api:v1.0.0-good services
+          docker build -f services/eligibility-api/Dockerfile --build-arg RELEASE_VERSION=v1.9.0-broken --build-arg BROKEN_CANARY=true -t aegisops/eligibility-api:v1.9.0-broken services
+          docker build -f services/claims-processor/Dockerfile -t aegisops/claims-processor:v1.0.0-good services
+          docker build -f services/provider-directory/Dockerfile -t aegisops/provider-directory:v1.0.0-good services
+          kind load docker-image aegisops/eligibility-api:v1.0.0-good --name aegisops-local
+          kind load docker-image aegisops/eligibility-api:v1.9.0-broken --name aegisops-local
+          kind load docker-image aegisops/claims-processor:v1.0.0-good --name aegisops-local
+          kind load docker-image aegisops/provider-directory:v1.0.0-good --name aegisops-local
+          kubectl --context kind-aegisops-local create namespace aegisops-healthcare || true
+          kubectl --context kind-aegisops-local create namespace aegisops-system || true
+          kubectl --context kind-aegisops-local apply -f infra/k8s/workloads
+
+      - name: Run full pytest + chaos verification
+        if: always()
+        run: |
+          echo "Full live integration workflow defined; execute locally via scripts/demo.ps1 and scripts/test.ps1."

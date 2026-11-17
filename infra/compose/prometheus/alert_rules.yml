@@ -1,0 +1,75 @@
+groups:
+  - name: aegisops-healthcare-alerts
+    rules:
+      - alert: High5xxErrorRate
+        expr: |
+          (
+            sum by (service, namespace, cluster) (rate(http_requests_total{status="500"}[30s]))
+            /
+            clamp_min(sum by (service, namespace, cluster) (rate(http_requests_total[30s])), 0.001)
+          ) > 0.10
+          and
+          sum by (service, namespace, cluster) (rate(http_requests_total[30s])) > 0.2
+        for: 10s
+        labels:
+          severity: critical
+          error_code: ERR_CANARY_IMG_SHA_BAD_9921
+        annotations:
+          summary: "High 5xx error ratio (>10%) on {{ $labels.service }}"
+          description: "{{ $labels.service }} 5xx error ratio exceeded 10% under active traffic (ERR_CANARY_IMG_SHA_BAD_9921)."
+
+      - alert: EligibilityDbPoolExhausted
+        expr: |
+          (
+            db_pool_active_connections{service="eligibility-api"}
+            /
+            clamp_min(db_pool_max_connections{service="eligibility-api"}, 1)
+          ) >= 0.90
+        for: 10s
+        labels:
+          severity: critical
+          service: eligibility-api
+          namespace: aegisops-healthcare
+          cluster: kind-aegisops-local
+          error_code: ERR_PG_POOL_TIMEOUT_57P03
+        annotations:
+          summary: "eligibility-api database connection pool saturated (>=90%)"
+          description: "ERR_PG_POOL_TIMEOUT_57P03 on eligibility-api: db_pool_active_connections saturation >= 90%."
+
+      - alert: ClaimsProcessorMemoryPressure
+        expr: |
+          (
+            simulated_memory_allocated_bytes{service="claims-processor"}
+            /
+            clamp_min(container_memory_limit_bytes{service="claims-processor"}, 1)
+          ) >= 0.88
+          or
+          sum by (namespace, cluster) (
+            kube_pod_container_status_terminated_reason{namespace="aegisops-healthcare", container="claims-processor", reason="OOMKilled"}
+          ) > 0
+        for: 10s
+        labels:
+          severity: critical
+          service: claims-processor
+          namespace: aegisops-healthcare
+          cluster: kind-aegisops-local
+          error_code: ERR_OOM_EXIT_137_CLAIMS_BATCH
+        annotations:
+          summary: "claims-processor memory pressure / OOM risk (>=88% of container limit)"
+          description: "ERR_OOM_EXIT_137_CLAIMS_BATCH: claims-processor working set exceeds 88% of container memory limit."
+
+      - alert: ProviderDirectoryHighLatencyCpu
+        expr: |
+          max by (service, namespace, cluster) (http_recent_p95_latency_seconds{service="provider-directory"}) > 0.50
+          and
+          sum by (service, namespace, cluster) (rate(http_requests_total{service="provider-directory"}[30s])) > 0.5
+        for: 10s
+        labels:
+          severity: warning
+          service: provider-directory
+          namespace: aegisops-healthcare
+          cluster: kind-aegisops-local
+          error_code: ERR_CPU_SATURATION_P95_SLOW
+        annotations:
+          summary: "provider-directory p95 latency > 0.50s under sustained load"
+          description: "ERR_CPU_SATURATION_P95_SLOW: provider-directory p95 response latency exceeded 500ms under active traffic."

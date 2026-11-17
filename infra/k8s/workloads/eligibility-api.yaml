@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eligibility-api
+  namespace: aegisops-healthcare
+  labels:
+    app: eligibility-api
+    aegisops.io/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eligibility-api
+  template:
+    metadata:
+      labels:
+        app: eligibility-api
+    spec:
+      containers:
+        - name: eligibility-api
+          image: aegisops/eligibility-api:v1.0.0-good
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8081
+          env:
+            - name: DEMO_POSTGRES_DSN
+              value: postgresql://demo:demopass@postgres-claims-db:5432/claims_demo
+            - name: DEMO_REDIS_URL
+              value: redis://redis-session-cache:6379/0
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://host.docker.internal:55318
+            - name: DEMO_INTERNAL_FAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: aegisops-demo-fault-secret
+                  key: token
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eligibility-api
+  namespace: aegisops-healthcare
+spec:
+  type: NodePort
+  selector:
+    app: eligibility-api
+  ports:
+    - port: 8081
+      targetPort: 8081
+      nodePort: 30081

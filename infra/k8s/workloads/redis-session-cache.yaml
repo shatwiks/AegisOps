@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-session-cache
+  namespace: aegisops-healthcare
+  labels:
+    app: redis-session-cache
+    aegisops.io/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-session-cache
+  template:
+    metadata:
+      labels:
+        app: redis-session-cache
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.4-alpine
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 192Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-session-cache
+  namespace: aegisops-healthcare
+spec:
+  selector:
+    app: redis-session-cache
+  ports:
+    - port: 6379
+      targetPort: 6379

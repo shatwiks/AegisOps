@@ -1,0 +1,41 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/tsconfig.tsbuildinfo
+playwright-report/
+test-results/
+
+# Local tools & secrets (never commit)
+.local/
+.env
+.env.local
+*.pem
+*.key
+kubeconfig.local
+infra/compose/alertmanager/alertmanager.generated.yml
+infra/compose/keycloak/realm-aegisops.generated.json
+
+# Terraform state
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/.terraform.lock.hcl
+
+# Graphify temp & logs
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/.graphify_*.json
+graphify-out/cache/
+*.log
+.DS_Store
+Thumbs.db
