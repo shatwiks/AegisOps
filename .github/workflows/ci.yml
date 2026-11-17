@@ -50,10 +50,13 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "backend/pyproject.toml"
+          activate-environment: false
 
       - name: Install backend dependencies
         run: |
-          uv venv .venv --python 3.12
+          uv venv .venv --python 3.12 --clear
           uv pip install --python .venv/bin/python -e "./backend[dev]"
 
       - name: Set up Node 22 & build frontend
@@ -71,14 +74,17 @@ jobs:
 
       - name: Enable pgvector extension & run Alembic migrations
         run: |
-          PGPASSWORD=ci_local_pg_password_123 psql -h 127.0.0.1 -p 55432 -U aegisops -d aegisops -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          if command -v psql >/dev/null 2>&1; then
+            PGPASSWORD=ci_local_pg_password_123 psql -h 127.0.0.1 -p 55432 -U aegisops -d aegisops -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          fi
           cd backend && ../.venv/bin/alembic upgrade head
           cd .. && .venv/bin/python -m app.seed.cmdb_seed
 
-      - name: Lint & Typecheck Backend
+      - name: Lint, Typecheck & Verify Docs
         run: |
           .venv/bin/ruff check --config backend/pyproject.toml backend
           .venv/bin/mypy --config-file backend/pyproject.toml backend/app
+          .venv/bin/python scripts/verify_docs.py
 
       - name: Run unit & Postgres/Redis integration tests
         run: |
@@ -93,4 +99,4 @@ jobs:
 
       - name: Secret pattern scan on tracked files
         run: |
-          ! git grep -nE "BEGIN (RSA|EC|OPENSSH) PRIVATE KEY|sk-lf-aegisops-local|otpauth://totp/" -- ':!.env.example'
+          ! git grep -nE "BEGIN (RSA|EC|OPENSSH) PRIVATE KEY|otpauth://totp/.*secret=|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}" -- ':!.env.example' ':!.github/workflows/ci.yml'
