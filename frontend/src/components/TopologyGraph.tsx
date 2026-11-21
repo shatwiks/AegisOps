@@ -12,6 +12,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { TopologyResponse } from '../types';
+import { Skeleton } from './ui/Skeleton';
 
 interface Props {
   topology: TopologyResponse | null;
@@ -43,7 +44,7 @@ function TopologyInner({ topology, selectedSlug, onSelectAsset }: Props) {
   const handleNodeClick = useCallback<NodeMouseHandler>(
     (_, node) => {
       onSelectAsset(node.id);
-      fitView({ nodes: [{ id: node.id }], duration: 200, padding: 0.6 });
+      fitView({ nodes: [{ id: node.id }], duration: 180, padding: 0.6 });
     },
     [fitView, onSelectAsset],
   );
@@ -55,19 +56,17 @@ function TopologyInner({ topology, selectedSlug, onSelectAsset }: Props) {
       const impacted = item.downstream_impacted;
       const isSelected = selectedSlug === item.slug;
 
-      let border = '1px solid #334155';
-      let bg = '#111827';
+      let border = '1px solid var(--status-success)';
+      let background = 'var(--bg-elevated)';
       if (hasIncident) {
-        border = '2px solid #ef4444';
-        bg = '#2b1215';
+        border = '2px solid var(--status-danger)';
+        background = 'var(--status-danger-surface)';
       } else if (impacted) {
-        border = '2px solid #f59e0b';
-        bg = '#291f0d';
-      } else {
-        border = '1px solid #10b981';
+        border = '2px solid var(--status-warning)';
+        background = 'var(--status-warning-surface)';
       }
       if (isSelected) {
-        border = '2px solid #38bdf8';
+        border = '2px solid var(--accent-highlight)';
       }
 
       const pos = NODE_POSITIONS[item.slug] ?? { x: (idx % 3) * 260, y: Math.floor(idx / 3) * 120 };
@@ -77,6 +76,12 @@ function TopologyInner({ topology, selectedSlug, onSelectAsset }: Props) {
           ? 'DOWNSTREAM IMPACT'
           : 'HEALTHY';
 
+      const statusClass = hasIncident
+        ? 'topo-status-danger'
+        : impacted
+          ? 'topo-status-warn'
+          : 'topo-status-ok';
+
       const k8s = item.k8s_live;
       const diff = item.selected_run_diff;
 
@@ -85,43 +90,36 @@ function TopologyInner({ topology, selectedSlug, onSelectAsset }: Props) {
         position: pos,
         data: {
           label: (
-            <div style={{ textAlign: 'left', fontSize: 11 }}>
-              <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: 12 }}>{item.slug}</div>
-              <div style={{ fontSize: 10, color: '#94a3b8' }}>
+            <div className="topo-node-content">
+              <div className="topo-node-slug">{item.slug}</div>
+              <div className="topo-node-meta">
                 {item.asset_type} · {item.criticality.replace('TIER_', 'T')}
               </div>
               {k8s && k8s.available && (
-                <div style={{ marginTop: 3, fontSize: 10, color: '#cbd5e1' }}>
+                <div className="topo-node-live">
                   <span>{k8s.replica_label}</span>
                   {k8s.memory_limit && k8s.memory_limit !== 'unset' && ` · ${k8s.memory_limit}`}
                   {k8s.image && <span> · {shortImageTag(k8s.image)}</span>}
-                  {k8s.stale && <span style={{ color: '#fbbf24' }}> (stale)</span>}
+                  {k8s.stale && <span className="topo-node-stale"> (stale)</span>}
                 </div>
               )}
               {k8s && k8s.virtual_cmdb_node && (
-                <div style={{ marginTop: 3, fontSize: 10, color: '#64748b' }}>Logical CMDB node</div>
+                <div className="topo-node-virtual">Logical CMDB node</div>
               )}
               {diff && (
-                <div style={{ marginTop: 3, fontSize: 10, color: '#38bdf8', fontWeight: 600 }}>
+                <div className="topo-node-diff">
                   Δ {diff.playbook_id}: {diff.before.replicas ?? '?'}→{diff.after.replicas ?? '?'} pods ·{' '}
                   {diff.after.memory_limit || shortImageTag(diff.after.image)}
                 </div>
               )}
-              <div
-                style={{
-                  marginTop: 4,
-                  fontSize: 10,
-                  fontWeight: 600,
-                  color: hasIncident ? '#fca5a5' : impacted ? '#fcd34d' : '#6ee7b7',
-                }}
-              >
+              <div className={`topo-node-status ${statusClass}`}>
                 {statusBadge}
               </div>
             </div>
           ),
         },
         style: {
-          background: bg,
+          background,
           border,
           borderRadius: 8,
           padding: 8,
@@ -139,14 +137,19 @@ function TopologyInner({ topology, selectedSlug, onSelectAsset }: Props) {
       target: e.target_slug,
       label: e.dependency_type,
       animated: true,
-      style: { stroke: '#64748b' },
-      labelStyle: { fill: '#94a3b8', fontSize: 9 },
-      markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
+      style: { stroke: 'var(--text-dim)' },
+      labelStyle: { fill: 'var(--text-muted)', fontSize: 9 },
+      markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--text-dim)' },
     }));
   }, [topology]);
 
   if (!topology) {
-    return <div className="empty-state">Loading CMDB topology graph...</div>;
+    return (
+      <div className="detail-stack" aria-label="Loading CMDB topology graph">
+        <Skeleton height={34} width={280} />
+        <Skeleton height={390} />
+      </div>
+    );
   }
 
   const selectedNode = topology.nodes.find((n) => n.slug === selectedSlug) || null;
@@ -157,6 +160,8 @@ function TopologyInner({ topology, selectedSlug, onSelectAsset }: Props) {
         <div className="tab-group" role="tablist" aria-label="Topology display mode">
           <button
             type="button"
+            role="tab"
+            aria-selected={viewMode === 'graph'}
             className={`tab-btn ${viewMode === 'graph' ? 'active' : ''}`}
             onClick={() => setViewMode('graph')}
           >
@@ -164,6 +169,8 @@ function TopologyInner({ topology, selectedSlug, onSelectAsset }: Props) {
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={viewMode === 'table'}
             className={`tab-btn ${viewMode === 'table' ? 'active' : ''}`}
             onClick={() => setViewMode('table')}
           >
@@ -176,7 +183,7 @@ function TopologyInner({ topology, selectedSlug, onSelectAsset }: Props) {
       </div>
 
       {viewMode === 'graph' ? (
-        <div style={{ width: '100%', height: 390, borderRadius: 8, overflow: 'hidden', background: '#090d16' }}>
+        <div className="topo-canvas">
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -184,7 +191,7 @@ function TopologyInner({ topology, selectedSlug, onSelectAsset }: Props) {
             fitView
             attributionPosition="bottom-left"
           >
-            <Background color="#1e293b" gap={18} />
+            <Background color="var(--bg-control)" gap={18} />
             <Controls />
           </ReactFlow>
         </div>
@@ -205,9 +212,20 @@ function TopologyInner({ topology, selectedSlug, onSelectAsset }: Props) {
                 <tr
                   key={n.slug}
                   onClick={() => onSelectAsset(n.slug)}
-                  style={{ cursor: 'pointer', background: selectedSlug === n.slug ? 'rgba(56,189,248,0.1)' : undefined }}
+                  className={`topo-row-clickable ${selectedSlug === n.slug ? 'topo-row-selected' : ''}`}
                 >
-                  <td><strong>{n.slug}</strong></td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn btn-ghost ui-btn--sm"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onSelectAsset(n.slug);
+                      }}
+                    >
+                      <strong>{n.slug}</strong>
+                    </button>
+                  </td>
                   <td>{n.criticality.replace('TIER_', 'T')} · {n.asset_type}</td>
                   <td>
                     {n.k8s_live?.replica_label || 'N/A'}

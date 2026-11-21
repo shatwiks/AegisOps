@@ -1,12 +1,43 @@
 import type { EvidenceResponse } from '../types';
+import { Button } from './ui/Button';
+import { Skeleton } from './ui/Skeleton';
 
 interface Props {
   evidence: EvidenceResponse | null;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
-export function EngineeringEvidenceView({ evidence }: Props) {
+export function EngineeringEvidenceView({ evidence, error, onRetry }: Props) {
+  if (error) {
+    return (
+      <section className="card" aria-label="Engineering Evidence Overview">
+        <div className="alert-banner alert-err" role="alert">
+          Unable to load engineering evidence: {error}
+        </div>
+        {onRetry && (
+          <Button variant="secondary" size="sm" onClick={onRetry}>
+            Retry Loading Evidence
+          </Button>
+        )}
+      </section>
+    );
+  }
+
   if (!evidence) {
-    return <div className="card">Loading build, benchmark, and test gate evidence...</div>;
+    return (
+      <div className="detail-stack" aria-label="Loading engineering evidence">
+        <div className="card">
+          <Skeleton height={24} width={300} />
+          <div style={{ marginTop: 12 }}>
+            <Skeleton height={72} />
+          </div>
+        </div>
+        <div className="card">
+          <Skeleton height={110} />
+        </div>
+      </div>
+    );
   }
 
   return (

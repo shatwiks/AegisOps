@@ -1,4 +1,5 @@
 import type { MetricsSummaryResponse, TimingSummary } from '../types';
+import { Skeleton } from './ui/Skeleton';
 
 interface Props {
   metrics: MetricsSummaryResponse | null;
@@ -34,7 +35,21 @@ export function MetricsDashboard({
   onApplyBaseline,
 }: Props) {
   if (!metrics) {
-    return <div className="card">Loading measured operational metrics...</div>;
+    return (
+      <section className="card" aria-label="Measured Value & Operational Metrics">
+        <div className="section-head">
+          <Skeleton height={24} width={280} />
+          <Skeleton height={30} width={180} />
+        </div>
+        <div className="metrics-grid">
+          <Skeleton height={86} />
+          <Skeleton height={86} />
+          <Skeleton height={86} />
+          <Skeleton height={86} />
+          <Skeleton height={86} />
+        </div>
+      </section>
+    );
   }
 
   const bv = metrics.business_value;

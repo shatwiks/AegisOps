@@ -10,9 +10,17 @@ import { ReplayController } from './components/ReplayController';
 import { RunbookKnowledgePanel } from './components/RunbookKnowledgePanel';
 import { TopologyGraph } from './components/TopologyGraph';
 import { TotpModal } from './components/TotpModal';
-import { apiFetch, generateRandomString, sha256Base64Url } from './lib/pkce';
+import { Badge } from './components/ui/Badge';
+import { Button } from './components/ui/Button';
+import { Skeleton } from './components/ui/Skeleton';
+import { IncidentQueuePanel } from './features/incidents/IncidentQueuePanel';
+import { VisitorOverviewBanner } from './features/overview/VisitorOverviewBanner';
+import { useAuthSession } from './hooks/useAuthSession';
+import { useDebouncedValue } from './hooks/useDebouncedValue';
+import { useIncidentStream } from './hooks/useIncidentStream';
+import { useUrlConsoleState } from './hooks/useUrlConsoleState';
+import { apiFetch } from './lib/pkce';
 import type {
-  AuthConfig,
   BusinessProbeSample,
   DemoRun,
   EvidenceResponse,
@@ -26,23 +34,38 @@ import type {
   ScenarioSpec,
   ShowcaseOverview,
   TopologyResponse,
-  UserSession,
 } from './types';
 
-let inFlightPkceCode: string | null = null;
-let inFlightPkcePromise: Promise<void> | null = null;
-
-type QueueTab = 'active' | 'resolved' | 'escalated' | 'failed' | 'all';
-type MainNav = 'console' | 'knowledge' | 'evidence';
-
 export function App() {
-  const [user, setUser] = useState<UserSession | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [sessionExpired, setSessionExpired] = useState(false);
+  const {
+    user,
+    authLoading,
+    authError,
+    sessionExpired,
+    handleLogin,
+    handleLogout,
+    refreshUser,
+    markSessionExpired,
+  } = useAuthSession();
 
-  const [mainNav, setMainNav] = useState<MainNav>('console');
-  const [technicalMode, setTechnicalMode] = useState(false);
+  const {
+    mainNav,
+    setMainNav,
+    queueTab,
+    setQueueTab,
+    queueSearch,
+    setQueueSearch,
+    queueSort,
+    setQueueSort,
+    hideTestRuns,
+    setHideTestRuns,
+    technicalMode,
+    setTechnicalMode,
+    selectedIncidentId,
+    setSelectedIncidentId,
+  } = useUrlConsoleState(authLoading);
+
+  const debouncedSearch = useDebouncedValue(queueSearch, 200);
 
   const [overview, setOverview] = useState<ShowcaseOverview | null>(null);
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
@@ -50,16 +73,14 @@ export function App() {
   const [recentRuns, setRecentRuns] = useState<DemoRun[]>([]);
   const [probes, setProbes] = useState<BusinessProbeSample[]>([]);
   const [evidence, setEvidence] = useState<EvidenceResponse | null>(null);
+  const [evidenceError, setEvidenceError] = useState<string | null>(null);
 
   const [topology, setTopology] = useState<TopologyResponse | null>(null);
   const [selectedAssetSlug, setSelectedAssetSlug] = useState<string | null>(null);
 
-  const [queueTab, setQueueTab] = useState<QueueTab>('all');
-  const [hideTestRuns, setHideTestRuns] = useState(true);
-  const [queueSearch, setQueueSearch] = useState('');
-  const [queueSort, setQueueSort] = useState<'newest' | 'oldest' | 'severity'>('newest');
   const [incidents, setIncidents] = useState<IncidentSummary[]>([]);
-  const [tabCounts, setTabCounts] = useState({
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [tabCounts, setTabCounts] = useState<IncidentListResponse['tab_counts']>({
     active: 0,
     resolved: 0,
     escalated: 0,
@@ -68,7 +89,6 @@ export function App() {
     hidden_test_count: 0,
   });
 
-  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<IncidentDetailResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -77,18 +97,13 @@ export function App() {
   const [appliedBaseline, setAppliedBaseline] = useState<number | null>(null);
   const [metrics, setMetrics] = useState<MetricsSummaryResponse | null>(null);
 
-  const [sseState, setSseState] = useState<'connecting' | 'live' | 'reconnecting'>('connecting');
-  const lastUpdateAtRef = useRef<number>(Date.now());
-  const [isStale, setIsStale] = useState(false);
   const [showTotpModal, setShowTotpModal] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
 
-  // Guided Tour state (restorable across refresh via sessionStorage)
   const [tourActive, setTourActive] = useState<boolean>(() => sessionStorage.getItem('aegisops_tour_active') === '1');
   const [tourPaused, setTourPaused] = useState(false);
   const [activeTourRun, setActiveTourRun] = useState<DemoRun | null>(null);
 
-  // Recorded Replay state (strictly isolated from live state)
   const [replays, setReplays] = useState<ReplayListItem[]>([]);
   const [activeReplay, setActiveReplay] = useState<ReplayTimeline | null>(null);
   const [replayFrameIdx, setReplayFrameIdx] = useState(0);
@@ -134,8 +149,9 @@ export function App() {
     }
   }, [metricsScope, appliedBaseline, activeReplay]);
 
-  const loadAuthorizedQueue = useCallback(async () => {
+  const loadAuthorizedQueue = useCallback(async (showLoader = false) => {
     if (!user) return;
+    if (showLoader) setQueueLoading(true);
     try {
       const params = new URLSearchParams({
         tab: queueTab,
@@ -143,24 +159,24 @@ export function App() {
         sort: queueSort,
         limit: '50',
       });
-      if (queueSearch.trim()) {
-        params.set('search', queueSearch.trim());
+      if (debouncedSearch.trim()) {
+        params.set('search', debouncedSearch.trim());
       }
       const incResp = await apiFetch<IncidentListResponse>(`/api/v1/incidents?${params.toString()}`);
       setIncidents(incResp.items);
       setTabCounts(incResp.tab_counts);
-      lastUpdateAtRef.current = Date.now();
-      setIsStale(false);
+      setDataError(null);
     } catch (err) {
       const status = (err as { status?: number }).status;
       if (status === 401) {
-        setSessionExpired(true);
-        setUser(null);
+        markSessionExpired();
       } else {
         setDataError(err instanceof Error ? err.message : 'Failed to load incident queue');
       }
+    } finally {
+      if (showLoader) setQueueLoading(false);
     }
-  }, [user, queueTab, hideTestRuns, queueSort, queueSearch]);
+  }, [user, queueTab, hideTestRuns, queueSort, debouncedSearch, markSessionExpired]);
 
   const loadIncidentDetail = useCallback(async (id: string) => {
     if (!user) return;
@@ -174,189 +190,55 @@ export function App() {
     } catch (err) {
       const status = (err as { status?: number }).status;
       if (status === 401) {
-        setSessionExpired(true);
-        setUser(null);
+        markSessionExpired();
       } else {
         setDataError(err instanceof Error ? err.message : 'Failed to load incident detail');
       }
     } finally {
       setDetailLoading(false);
     }
-  }, [user]);
+  }, [user, markSessionExpired]);
+
+  const loadEvidence = useCallback(() => {
+    setEvidenceError(null);
+    apiFetch<EvidenceResponse>('/api/v1/showcase/evidence')
+      .then((res) => setEvidence(res))
+      .catch((err) => {
+        setEvidenceError(err instanceof Error ? err.message : 'Failed to load engineering evidence');
+      });
+  }, []);
 
   const refreshAll = useCallback(() => {
     loadPublicShowcaseData();
     if (user) {
-      loadAuthorizedQueue();
+      loadAuthorizedQueue(false);
       if (selectedIdRef.current) {
         loadIncidentDetail(selectedIdRef.current);
       }
     }
   }, [loadPublicShowcaseData, loadAuthorizedQueue, loadIncidentDetail, user]);
 
-  // Bootstrap OIDC session (never forces redirect; visitors stay in read-only Showcase mode)
-  useEffect(() => {
-    let active = true;
-    async function initAuth() {
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get('code');
-      const state = params.get('state');
+  const { sseState, isStale } = useIncidentStream(Boolean(user), refreshAll);
 
-      if (code && state) {
-        try {
-          if (inFlightPkceCode !== code || !inFlightPkcePromise) {
-            inFlightPkceCode = code;
-            inFlightPkcePromise = (async () => {
-              const expectedState = sessionStorage.getItem('aegisops_pkce_state');
-              const verifier = sessionStorage.getItem('aegisops_pkce_verifier');
-              const nonce = sessionStorage.getItem('aegisops_pkce_nonce');
-              sessionStorage.removeItem('aegisops_pkce_state');
-              sessionStorage.removeItem('aegisops_pkce_verifier');
-              sessionStorage.removeItem('aegisops_pkce_nonce');
-
-              if (!verifier || expectedState !== state) {
-                throw new Error('OIDC PKCE state mismatch');
-              }
-              await apiFetch('/api/v1/auth/oidc/exchange', {
-                method: 'POST',
-                body: JSON.stringify({
-                  code,
-                  code_verifier: verifier,
-                  redirect_uri: `${window.location.origin}/`,
-                  nonce,
-                }),
-              });
-              window.history.replaceState({}, document.title, '/');
-            })();
-          }
-          await inFlightPkcePromise;
-        } catch (err) {
-          if (active) setAuthError(err instanceof Error ? err.message : 'OIDC login failed');
-        }
-      }
-
-      try {
-        const me = await apiFetch<UserSession>('/api/v1/auth/me');
-        if (active) {
-          setUser(me);
-          setSessionExpired(false);
-        }
-      } catch {
-        if (active) setUser(null);
-      } finally {
-        if (active) setAuthLoading(false);
-      }
-    }
-    initAuth();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  // Load showcase data for both Visitor Mode and Authenticated Mode
   useEffect(() => {
     if (authLoading) return;
     loadPublicShowcaseData();
     if (user) {
-      loadAuthorizedQueue();
-    }
-  }, [authLoading, user, loadPublicShowcaseData, loadAuthorizedQueue]);
-
-  // Lazy load Engineering Evidence when Reviewer tab opens
-  useEffect(() => {
-    if (mainNav === 'evidence' && !evidence) {
-      apiFetch<EvidenceResponse>('/api/v1/showcase/evidence')
-        .then(setEvidence)
-        .catch(() => {
-          // handled silently
-        });
-    }
-  }, [mainNav, evidence]);
-
-  // Live SSE subscription when authenticated
-  useEffect(() => {
-    if (!user) return;
-    let es: EventSource | null = null;
-    let reconnectTimer: number | undefined;
-    let cancelled = false;
-
-    const connectSse = () => {
-      if (cancelled) return;
-      setSseState('connecting');
-      es = new EventSource('/api/v1/stream/incidents', { withCredentials: true });
-      es.onopen = () => {
-        setSseState('live');
-        setIsStale(false);
-        lastUpdateAtRef.current = Date.now();
-      };
-      es.addEventListener('incidents_snapshot', () => {
-        lastUpdateAtRef.current = Date.now();
-        setIsStale(false);
-        loadPublicShowcaseData();
-        loadAuthorizedQueue();
-        if (selectedIdRef.current) {
-          loadIncidentDetail(selectedIdRef.current);
-        }
-      });
-      es.onerror = () => {
-        setSseState('reconnecting');
-        es?.close();
-        if (!cancelled) {
-          reconnectTimer = window.setTimeout(connectSse, 3000);
-        }
-      };
-    };
-
-    connectSse();
-    const staleTimer = window.setInterval(() => {
-      if (Date.now() - lastUpdateAtRef.current > 20000) {
-        setIsStale(true);
+      loadAuthorizedQueue(true);
+      if (selectedIdRef.current) {
+        loadIncidentDetail(selectedIdRef.current);
       }
-    }, 5000);
-
-    return () => {
-      cancelled = true;
-      es?.close();
-      if (reconnectTimer) window.clearTimeout(reconnectTimer);
-      window.clearInterval(staleTimer);
-    };
-  }, [user, loadPublicShowcaseData, loadAuthorizedQueue, loadIncidentDetail]);
-
-  async function handleLogin() {
-    setAuthError(null);
-    try {
-      const cfg = await apiFetch<AuthConfig>('/api/v1/auth/config');
-      const verifier = generateRandomString(48);
-      const challenge = await sha256Base64Url(verifier);
-      const state = generateRandomString(24);
-      const nonce = generateRandomString(24);
-
-      sessionStorage.setItem('aegisops_pkce_verifier', verifier);
-      sessionStorage.setItem('aegisops_pkce_state', state);
-      sessionStorage.setItem('aegisops_pkce_nonce', nonce);
-
-      const url = new URL(cfg.authorization_endpoint);
-      url.searchParams.set('client_id', cfg.client_id);
-      url.searchParams.set('response_type', 'code');
-      url.searchParams.set('scope', 'openid profile email');
-      url.searchParams.set('redirect_uri', `${window.location.origin}/`);
-      url.searchParams.set('state', state);
-      url.searchParams.set('nonce', nonce);
-      url.searchParams.set('code_challenge', challenge);
-      url.searchParams.set('code_challenge_method', 'S256');
-      window.location.assign(url.toString());
-    } catch (err) {
-      setAuthError(err instanceof Error ? err.message : 'Unable to start OIDC login');
     }
-  }
+  }, [authLoading, user, loadPublicShowcaseData, loadAuthorizedQueue, loadIncidentDetail]);
 
-  async function handleLogout() {
-    try {
-      await apiFetch('/api/v1/auth/logout', { method: 'POST' });
-    } catch {
-      // ignore if already expired
+  useEffect(() => {
+    if (mainNav === 'evidence' && !evidence && !evidenceError) {
+      loadEvidence();
     }
-    setUser(null);
+  }, [mainNav, evidence, evidenceError, loadEvidence]);
+
+  async function onSignOutClick() {
+    await handleLogout();
     setSelectedDetail(null);
     setSelectedIncidentId(null);
   }
@@ -378,7 +260,23 @@ export function App() {
   }
 
   if (authLoading) {
-    return <main className="shell">Checking OIDC authentication session...</main>;
+    return (
+      <main className="shell" aria-label="Checking OIDC authentication session">
+        <header className="shell-header">
+          <div>
+            <Skeleton height={14} width={260} />
+            <div style={{ marginTop: 8 }}>
+              <Skeleton height={28} width={310} />
+            </div>
+          </div>
+          <Skeleton height={34} width={230} />
+        </header>
+        <div className="detail-stack">
+          <Skeleton height={150} />
+          <Skeleton height={390} />
+        </div>
+      </main>
+    );
   }
 
   const currentReplayFrame = activeReplay?.frames[replayFrameIdx];
@@ -393,49 +291,60 @@ export function App() {
         <div className="header-controls">
           {user ? (
             <>
-              <span className={`badge ${sseState === 'live' ? 'badge-ok' : 'badge-warn'}`}>
+              <Badge tone={sseState === 'live' ? 'ok' : 'warn'} withDot>
                 Stream: {sseState}
                 {isStale ? ' (stale)' : ''}
-              </span>
+              </Badge>
               <span className="role-pill">
                 {user.email} ({user.highest_role})
               </span>
               {user.highest_role === 'approver' && (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowTotpModal(true)}
-                >
+                <Button variant="secondary" onClick={() => setShowTotpModal(true)}>
                   {user.totp_verified ? 'Re-enroll TOTP MFA' : 'Enroll TOTP MFA'}
-                </button>
+                </Button>
               )}
-              <button type="button" className="btn btn-ghost" onClick={handleLogout}>
+              <Button variant="ghost" onClick={onSignOutClick}>
                 Sign Out
-              </button>
+              </Button>
             </>
           ) : (
             <>
-              <span className="badge badge-warn">Visitor Mode (Read-Only)</span>
-              <button type="button" className="btn btn-primary" onClick={handleLogin}>
+              <Badge tone="warn" withDot>
+                Visitor Mode (Read-Only)
+              </Badge>
+              <Button variant="primary" onClick={handleLogin}>
                 Sign In with Keycloak OIDC (PKCE)
-              </button>
+              </Button>
             </>
           )}
         </div>
       </header>
 
       {sessionExpired && (
-        <div className="alert-banner alert-warn">
+        <div className="alert-banner alert-warn" role="status">
           Your session expired. You are currently in Visitor Mode; sign in again for live operations.
         </div>
       )}
-      {authError && <p className="error-text">{authError}</p>}
-      {dataError && <div className="alert-banner alert-err">API Error: {dataError}</div>}
+      {authError && (
+        <p className="error-text" role="alert">
+          {authError}
+        </p>
+      )}
+      {dataError && (
+        <div className="alert-banner alert-err" role="alert" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <span>API Error: {dataError}</span>
+          <Button variant="ghost" size="sm" onClick={refreshAll}>
+            Retry
+          </Button>
+        </div>
+      )}
 
       <nav className="subnav-bar" aria-label="Console navigation and presentation controls">
         <div className="tab-group" role="tablist">
           <button
             type="button"
+            role="tab"
+            aria-selected={mainNav === 'console'}
             className={`tab-btn ${mainNav === 'console' ? 'active' : ''}`}
             onClick={() => setMainNav('console')}
           >
@@ -443,6 +352,8 @@ export function App() {
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={mainNav === 'knowledge'}
             className={`tab-btn ${mainNav === 'knowledge' ? 'active' : ''}`}
             onClick={() => setMainNav('knowledge')}
           >
@@ -450,6 +361,8 @@ export function App() {
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={mainNav === 'evidence'}
             className={`tab-btn ${mainNav === 'evidence' ? 'active' : ''}`}
             onClick={() => setMainNav('evidence')}
           >
@@ -458,51 +371,26 @@ export function App() {
         </div>
 
         <div className="header-controls">
-          <button
-            type="button"
-            className="btn btn-secondary"
+          <Button
+            variant="secondary"
+            aria-pressed={technicalMode}
             onClick={() => setTechnicalMode((m) => !m)}
           >
             View: {technicalMode ? 'Technical Deep-Dive' : 'Executive Overview'}
-          </button>
+          </Button>
           {replays.length > 0 && !activeReplay && (
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => openReplay(replays[0].replay_id, true)}
-            >
+            <Button variant="secondary" onClick={() => openReplay(replays[0].replay_id, true)}>
               Recorded Replay ({replays.length})
-            </button>
+            </Button>
           )}
         </div>
       </nav>
 
       {overview && !user && (
-        <section className="card" style={{ marginBottom: '1rem' }}>
-          <div className="section-head">
-            <div>
-              <strong>What AegisOps Does (Executive Overview)</strong>
-              <p className="muted" style={{ fontSize: '0.82rem', margin: '0.2rem 0 0' }}>
-                {overview.disclaimer}
-              </p>
-            </div>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => openReplay('fixture-traffic-spike-recovery', true)}
-            >
-              Start Guided Demo (Recorded Replay)
-            </button>
-          </div>
-          <div className="pillars-grid">
-            {overview.five_pillars.map((p) => (
-              <div key={p.title} className="pillar-tile">
-                <strong>{p.title}</strong>
-                <div className="muted" style={{ fontSize: '0.76rem', marginTop: 2 }}>{p.detail}</div>
-              </div>
-            ))}
-          </div>
-        </section>
+        <VisitorOverviewBanner
+          overview={overview}
+          onStartGuidedReplay={() => openReplay('fixture-traffic-spike-recovery', true)}
+        />
       )}
 
       {activeReplay && (
@@ -586,7 +474,7 @@ export function App() {
           />
 
           <div className="console-grid" style={{ marginTop: 0 }}>
-            <section className="card">
+            <section className="card" aria-label="CMDB Dependency and Blast-Radius Topology">
               <div className="section-head">
                 <h2>CMDB Dependency &amp; Blast-Radius Topology</h2>
                 <span className="muted-pill">edge: source depends_on target</span>
@@ -598,100 +486,27 @@ export function App() {
               />
             </section>
 
-            <section className="card">
-              <div className="section-head">
-                <h2>Incidents ({user ? tabCounts.all : 'Sign In Required'})</h2>
-                <button type="button" className="btn btn-ghost" onClick={refreshAll}>
-                  Refresh
-                </button>
-              </div>
-
-              {!user ? (
-                <div className="empty-state">
-                  Sign in via Keycloak OIDC above to inspect live incidents, approve high-risk TOTP actions,
-                  or export postmortems. Or launch a <strong>Recorded Replay</strong> to walk through the complete timeline safely.
-                </div>
-              ) : (
-                <>
-                  <div className="tab-group" style={{ marginBottom: 8 }} role="tablist" aria-label="Incident queue tabs">
-                    {(
-                      [
-                        ['active', `Active (${tabCounts.active})`],
-                        ['resolved', `Resolved (${tabCounts.resolved})`],
-                        ['escalated', `Escalated (${tabCounts.escalated})`],
-                        ['failed', `Failed (${tabCounts.failed})`],
-                        ['all', `All (${tabCounts.all})`],
-                      ] as const
-                    ).map(([tabKey, label]) => (
-                      <button
-                        key={tabKey}
-                        type="button"
-                        className={`tab-btn ${queueTab === tabKey ? 'active' : ''}`}
-                        onClick={() => setQueueTab(tabKey)}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="inline-form" style={{ marginTop: 0, marginBottom: 8, alignItems: 'center' }}>
-                    <input
-                      type="search"
-                      placeholder="Search service, alert, UUID..."
-                      value={queueSearch}
-                      onChange={(e) => setQueueSearch(e.target.value)}
-                      style={{ flex: 1, minWidth: 140 }}
-                    />
-                    <select
-                      aria-label="Sort incidents"
-                      value={queueSort}
-                      onChange={(e) => setQueueSort(e.target.value as 'newest' | 'oldest' | 'severity')}
-                    >
-                      <option value="newest">Newest</option>
-                      <option value="severity">Severity (P1-&gt;P4)</option>
-                      <option value="oldest">Oldest</option>
-                    </select>
-                    <label className="muted" style={{ fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <input
-                        type="checkbox"
-                        checked={hideTestRuns}
-                        onChange={(e) => setHideTestRuns(e.target.checked)}
-                      />
-                      Hide Test Runs ({tabCounts.hidden_test_count})
-                    </label>
-                  </div>
-
-                  {incidents.length === 0 ? (
-                    <div className="empty-state">No incidents matching this filter.</div>
-                  ) : (
-                    <ul className="incident-list">
-                      {incidents.map((inc) => (
-                        <li key={inc.id}>
-                          <button
-                            type="button"
-                            className={`incident-row ${selectedIncidentId === inc.id ? 'active' : ''}`}
-                            onClick={() => {
-                              setSelectedIncidentId(inc.id);
-                              loadIncidentDetail(inc.id);
-                            }}
-                          >
-                            <div className="row-top">
-                              <span className={`sev-pill sev-${inc.severity}`}>{inc.severity}</span>
-                              <span className="state-pill">{inc.state}</span>
-                            </div>
-                            <div className="row-title">{inc.title}</div>
-                            <div className="row-sub">
-                              {inc.asset_slug || 'unknown'} · {inc.source_provenance || 'unknown'} ·{' '}
-                              {new Date(inc.ingested_at).toLocaleString()}
-                            </div>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </>
-              )}
-            </section>
+            <IncidentQueuePanel
+              user={user}
+              loading={queueLoading}
+              incidents={incidents}
+              tabCounts={tabCounts}
+              queueTab={queueTab}
+              queueSearch={queueSearch}
+              queueSort={queueSort}
+              hideTestRuns={hideTestRuns}
+              selectedIncidentId={selectedIncidentId}
+              onChangeTab={setQueueTab}
+              onChangeSearch={setQueueSearch}
+              onChangeSort={setQueueSort}
+              onToggleHideTestRuns={setHideTestRuns}
+              onSelectIncident={(id) => {
+                setSelectedIncidentId(id);
+                loadIncidentDetail(id);
+              }}
+              onRefresh={refreshAll}
+              onStartReplay={() => openReplay('fixture-traffic-spike-recovery', true)}
+            />
           </div>
 
           <BusinessProbeCard
@@ -725,15 +540,20 @@ export function App() {
         </div>
       )}
 
-      {mainNav === 'evidence' && <EngineeringEvidenceView evidence={evidence} />}
+      {mainNav === 'evidence' && (
+        <EngineeringEvidenceView
+          evidence={evidence}
+          error={evidenceError}
+          onRetry={loadEvidence}
+        />
+      )}
 
       {showTotpModal && (
         <TotpModal
           onClose={() => setShowTotpModal(false)}
           onVerified={async () => {
             setShowTotpModal(false);
-            const me = await apiFetch<UserSession>('/api/v1/auth/me');
-            setUser(me);
+            await refreshUser();
           }}
         />
       )}

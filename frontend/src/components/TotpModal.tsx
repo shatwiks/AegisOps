@@ -1,10 +1,23 @@
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { apiFetch } from '../lib/pkce';
+import { Button } from './ui/Button';
+import { Modal } from './ui/Modal';
 
 interface Props {
   onClose: () => void;
   onVerified: () => void;
+}
+
+function readQrPalette(): { bg: string; fg: string } {
+  if (typeof window === 'undefined') {
+    return { bg: 'white', fg: 'black' };
+  }
+  const styles = window.getComputedStyle(document.documentElement);
+  return {
+    bg: styles.getPropertyValue('--qr-bg').trim() || 'white',
+    fg: styles.getPropertyValue('--qr-fg').trim() || 'black',
+  };
 }
 
 export function TotpModal({ onClose, onVerified }: Props) {
@@ -13,6 +26,8 @@ export function TotpModal({ onClose, onVerified }: Props) {
   const [otp, setOtp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const qrPalette = useMemo(() => readQrPalette(), []);
 
   async function startEnrollment() {
     setBusy(true);
@@ -49,51 +64,47 @@ export function TotpModal({ onClose, onVerified }: Props) {
   }
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
-      <div className="modal-card">
-        <div className="modal-header">
-          <h3>Step-Up TOTP MFA Enrollment</h3>
-          <button type="button" className="btn btn-ghost" onClick={onClose}>
-            Close
-          </button>
-        </div>
-        <p className="muted">
-          TOTP seeds are encrypted with Fernet at rest and bound per-approver. Never reused.
-        </p>
+    <Modal titleId="totp-modal-title" title="Step-Up TOTP MFA Enrollment" onClose={onClose}>
+      <p className="muted">
+        TOTP seeds are encrypted with Fernet at rest and bound per-approver. Never reused.
+      </p>
 
-        {!uri ? (
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={busy}
-            onClick={startEnrollment}
-          >
-            {busy ? 'Generating Secret...' : 'Generate TOTP QR Secret'}
-          </button>
-        ) : (
-          <div className="totp-box">
-            <div className="qr-frame">
-              <QRCodeSVG value={uri} size={156} bgColor="#ffffff" fgColor="#0f172a" />
-            </div>
-            <p className="mono-small">Secret mask: {mask}</p>
-            <form onSubmit={submitVerify} className="inline-form">
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                placeholder="6-digit OTP"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                required
-              />
-              <button type="submit" className="btn btn-primary" disabled={busy}>
-                {busy ? 'Verifying...' : 'Activate MFA'}
-              </button>
-            </form>
+      {!uri ? (
+        <Button variant="primary" loading={busy} onClick={startEnrollment}>
+          {busy ? 'Generating Secret...' : 'Generate TOTP QR Secret'}
+        </Button>
+      ) : (
+        <div className="totp-box">
+          <div className="qr-frame">
+            <QRCodeSVG value={uri} size={156} bgColor={qrPalette.bg} fgColor={qrPalette.fg} />
           </div>
-        )}
-        {error && <p className="error-text">{error}</p>}
-      </div>
-    </div>
+          <p className="mono-small">Secret mask: {mask}</p>
+          <form onSubmit={submitVerify} className="inline-form">
+            <label htmlFor="totp-verify-code" className="sr-only">
+              6-digit verification code from authenticator app
+            </label>
+            <input
+              id="totp-verify-code"
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              placeholder="6-digit OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              aria-describedby={error ? 'totp-modal-error' : undefined}
+              required
+            />
+            <Button type="submit" variant="primary" loading={busy}>
+              {busy ? 'Verifying...' : 'Activate MFA'}
+            </Button>
+          </form>
+        </div>
+      )}
+      {error && (
+        <p id="totp-modal-error" role="alert" className="error-text">
+          {error}
+        </p>
+      )}
+    </Modal>
   );
 }
