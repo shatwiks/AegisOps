@@ -1,3 +1,4 @@
+import { RefreshCw, Search } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
@@ -23,7 +24,7 @@ interface Props {
   onStartReplay: () => void;
 }
 
-/** Filtered incident queue supporting SQL tab counts, debounced search, sort, and Visitor empty state. */
+/** Dense Linear-style incident queue with SQL tab counts, debounced search, sort, and Visitor empty state. */
 export function IncidentQueuePanel({
   user,
   loading,
@@ -49,6 +50,7 @@ export function IncidentQueuePanel({
       <div className="section-head">
         <h2>Incidents ({user ? tabCounts.all : 'Sign In Required'})</h2>
         <Button variant="ghost" size="sm" onClick={onRefresh}>
+          <RefreshCw size={13} aria-hidden="true" />
           Refresh
         </Button>
       </div>
@@ -64,13 +66,13 @@ export function IncidentQueuePanel({
           }
           action={
             <Button variant="secondary" size="sm" onClick={onStartReplay}>
-              Start Guided Demo (Recorded Replay)
+              Open Recorded Incident Replay
             </Button>
           }
         />
       ) : (
         <>
-          <div className="tab-group" style={{ marginBottom: 8 }} role="tablist" aria-label="Incident queue tabs">
+          <div className="tab-group" style={{ marginBottom: 8 }} role="group" aria-label="Incident queue filter tabs">
             {(
               [
                 ['active', `Active (${tabCounts.active})`],
@@ -83,8 +85,7 @@ export function IncidentQueuePanel({
               <button
                 key={tabKey}
                 type="button"
-                role="tab"
-                aria-selected={queueTab === tabKey}
+                aria-pressed={queueTab === tabKey}
                 className={`tab-btn tabular-nums ${queueTab === tabKey ? 'active' : ''}`}
                 onClick={() => onChangeTab(tabKey)}
               >
@@ -93,18 +94,20 @@ export function IncidentQueuePanel({
             ))}
           </div>
 
-          <div className="inline-form" style={{ marginTop: 0, marginBottom: 8, alignItems: 'center' }}>
-            <label htmlFor="incident-queue-search" className="sr-only">
-              Search incidents by service, alert, or UUID
-            </label>
-            <input
-              id="incident-queue-search"
-              type="search"
-              placeholder="Search service, alert, UUID..."
-              value={queueSearch}
-              onChange={(e) => onChangeSearch(e.target.value)}
-              style={{ flex: 1, minWidth: 140 }}
-            />
+          <div className="inline-form" style={{ marginTop: 0, marginBottom: 10, alignItems: 'center' }}>
+            <div className="search-input-wrap">
+              <Search size={14} aria-hidden="true" />
+              <label htmlFor="incident-queue-search" className="sr-only">
+                Search incidents by service, alert, or UUID
+              </label>
+              <input
+                id="incident-queue-search"
+                type="search"
+                placeholder="Search service, alert, UUID..."
+                value={queueSearch}
+                onChange={(e) => onChangeSearch(e.target.value)}
+              />
+            </div>
             <select
               aria-label="Sort incidents"
               value={queueSort}
@@ -114,7 +117,7 @@ export function IncidentQueuePanel({
               <option value="severity">Severity (P1-&gt;P4)</option>
               <option value="oldest">Oldest</option>
             </select>
-            <label className="muted tabular-nums" style={{ fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <label className="muted tabular-nums" style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 5 }}>
               <input
                 type="checkbox"
                 checked={hideTestRuns}
@@ -126,9 +129,9 @@ export function IncidentQueuePanel({
 
           {loading ? (
             <div className="detail-stack" aria-label="Loading incident queue">
-              <Skeleton height={68} />
-              <Skeleton height={68} />
-              <Skeleton height={68} />
+              <Skeleton height={66} />
+              <Skeleton height={66} />
+              <Skeleton height={66} />
             </div>
           ) : incidents.length === 0 ? (
             <EmptyState

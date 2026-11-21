@@ -10,11 +10,12 @@ import { ReplayController } from './components/ReplayController';
 import { RunbookKnowledgePanel } from './components/RunbookKnowledgePanel';
 import { TopologyGraph } from './components/TopologyGraph';
 import { TotpModal } from './components/TotpModal';
-import { Badge } from './components/ui/Badge';
 import { Button } from './components/ui/Button';
 import { Skeleton } from './components/ui/Skeleton';
 import { IncidentQueuePanel } from './features/incidents/IncidentQueuePanel';
 import { VisitorOverviewBanner } from './features/overview/VisitorOverviewBanner';
+import { CommandHeader } from './features/shell/CommandHeader';
+import { WorkspaceNav } from './features/shell/WorkspaceNav';
 import { useAuthSession } from './hooks/useAuthSession';
 import { useDebouncedValue } from './hooks/useDebouncedValue';
 import { useIncidentStream } from './hooks/useIncidentStream';
@@ -261,302 +262,237 @@ export function App() {
 
   if (authLoading) {
     return (
-      <main className="shell" aria-label="Checking OIDC authentication session">
-        <header className="shell-header">
-          <div>
-            <Skeleton height={14} width={260} />
-            <div style={{ marginTop: 8 }}>
-              <Skeleton height={28} width={310} />
-            </div>
-          </div>
-          <Skeleton height={34} width={230} />
-        </header>
+      <div className="shell-main" aria-label="Checking OIDC authentication session">
         <div className="detail-stack">
-          <Skeleton height={150} />
-          <Skeleton height={390} />
+          <Skeleton height={60} />
+          <Skeleton height={220} />
+          <Skeleton height={380} />
         </div>
-      </main>
+      </div>
     );
   }
 
   const currentReplayFrame = activeReplay?.frames[replayFrameIdx];
 
   return (
-    <main className="shell">
-      <header className="shell-header">
-        <div>
-          <span className="eyebrow">Independent Synthetic Healthcare AIOps Demonstration</span>
-          <h1>{user ? 'AegisOps SRE Console' : 'AegisOps SRE Control Plane'}</h1>
-        </div>
-        <div className="header-controls">
-          {user ? (
-            <>
-              <Badge tone={sseState === 'live' ? 'ok' : 'warn'} withDot>
-                Stream: {sseState}
-                {isStale ? ' (stale)' : ''}
-              </Badge>
-              <span className="role-pill">
-                {user.email} ({user.highest_role})
-              </span>
-              {user.highest_role === 'approver' && (
-                <Button variant="secondary" onClick={() => setShowTotpModal(true)}>
-                  {user.totp_verified ? 'Re-enroll TOTP MFA' : 'Enroll TOTP MFA'}
-                </Button>
-              )}
-              <Button variant="ghost" onClick={onSignOutClick}>
-                Sign Out
-              </Button>
-            </>
-          ) : (
-            <>
-              <Badge tone="warn" withDot>
-                Visitor Mode (Read-Only)
-              </Badge>
-              <Button variant="primary" onClick={handleLogin}>
-                Sign In with Keycloak OIDC (PKCE)
-              </Button>
-            </>
-          )}
-        </div>
-      </header>
+    <div>
+      <CommandHeader
+        user={user}
+        sseState={sseState}
+        isStale={isStale}
+        onLogin={handleLogin}
+        onLogout={onSignOutClick}
+        onOpenTotp={() => setShowTotpModal(true)}
+      />
 
-      {sessionExpired && (
-        <div className="alert-banner alert-warn" role="status">
-          Your session expired. You are currently in Visitor Mode; sign in again for live operations.
-        </div>
-      )}
-      {authError && (
-        <p className="error-text" role="alert">
-          {authError}
-        </p>
-      )}
-      {dataError && (
-        <div className="alert-banner alert-err" role="alert" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <span>API Error: {dataError}</span>
-          <Button variant="ghost" size="sm" onClick={refreshAll}>
-            Retry
-          </Button>
-        </div>
-      )}
-
-      <nav className="subnav-bar" aria-label="Console navigation and presentation controls">
-        <div className="tab-group" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mainNav === 'console'}
-            className={`tab-btn ${mainNav === 'console' ? 'active' : ''}`}
-            onClick={() => setMainNav('console')}
-          >
-            Operations Console
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mainNav === 'knowledge'}
-            className={`tab-btn ${mainNav === 'knowledge' ? 'active' : ''}`}
-            onClick={() => setMainNav('knowledge')}
-          >
-            Knowledge Base &amp; Privacy Playground
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mainNav === 'evidence'}
-            className={`tab-btn ${mainNav === 'evidence' ? 'active' : ''}`}
-            onClick={() => setMainNav('evidence')}
-          >
-            Engineering Evidence
-          </button>
-        </div>
-
-        <div className="header-controls">
-          <Button
-            variant="secondary"
-            aria-pressed={technicalMode}
-            onClick={() => setTechnicalMode((m) => !m)}
-          >
-            View: {technicalMode ? 'Technical Deep-Dive' : 'Executive Overview'}
-          </Button>
-          {replays.length > 0 && !activeReplay && (
-            <Button variant="secondary" onClick={() => openReplay(replays[0].replay_id, true)}>
-              Recorded Replay ({replays.length})
-            </Button>
-          )}
-        </div>
-      </nav>
-
-      {overview && !user && (
-        <VisitorOverviewBanner
-          overview={overview}
-          onStartGuidedReplay={() => openReplay('fixture-traffic-spike-recovery', true)}
-        />
-      )}
-
-      {activeReplay && (
-        <ReplayController
-          replays={replays}
-          activeReplay={activeReplay}
-          frameIndex={replayFrameIdx}
-          onSelectReplay={(rid) => openReplay(rid, tourActive)}
-          onChangeFrame={setReplayFrameIdx}
-          onExitReplay={() => {
-            setActiveReplay(null);
-            setTourActive(false);
-            sessionStorage.removeItem('aegisops_tour_active');
-          }}
-        />
-      )}
-
-      <GuidedTourBar
-        active={tourActive}
-        paused={tourPaused}
-        activeRun={activeTourRun}
-        isReplay={Boolean(activeReplay)}
-        replayNarration={
-          currentReplayFrame
-            ? {
-                step: currentReplayFrame.lifecycle_step,
-                headline: currentReplayFrame.headline,
-                detail: currentReplayFrame.narration,
-                focus_panel: currentReplayFrame.active_panel,
-              }
-            : null
-        }
-        onTogglePause={() => setTourPaused((p) => !p)}
-        onSkipStep={() => {
-          if (activeReplay && replayFrameIdx < activeReplay.frames.length - 1) {
-            setReplayFrameIdx((i) => i + 1);
-          }
-        }}
-        onExit={() => {
-          setTourActive(false);
-          sessionStorage.removeItem('aegisops_tour_active');
-        }}
-        onFocusPanel={(panel) => {
-          if (panel === 'runbooks' || panel === 'privacy') setMainNav('knowledge');
-          else setMainNav('console');
+      <WorkspaceNav
+        mainNav={mainNav}
+        technicalMode={technicalMode}
+        replaysCount={replays.length}
+        replayActive={Boolean(activeReplay)}
+        onChangeNav={setMainNav}
+        onToggleTechnicalMode={() => setTechnicalMode((m) => !m)}
+        onStartReplay={() => {
+          if (replays.length > 0) openReplay(replays[0].replay_id, true);
         }}
       />
 
-      {mainNav === 'console' && (
-        <div className="detail-stack">
-          <MetricsDashboard
-            metrics={metrics}
-            scope={metricsScope}
-            baselineMinutesInput={baselineInput}
-            technicalMode={technicalMode}
-            onChangeScope={setMetricsScope}
-            onChangeBaselineInput={setBaselineInput}
-            onApplyBaseline={() => {
-              const num = Number(baselineInput);
-              setAppliedBaseline(baselineInput.trim() && Number.isFinite(num) && num >= 1 ? num : null);
-            }}
-          />
-
-          <ChaosLabPanel
-            scenarios={scenarios}
-            recentRuns={recentRuns}
-            readiness={readiness}
-            canOperate={canOperate}
-            onRefresh={refreshAll}
-            onRunLaunched={(run, startTour) => {
-              setActiveReplay(null);
-              setActiveTourRun(run);
-              if (startTour) {
-                setTourActive(true);
-                sessionStorage.setItem('aegisops_tour_active', '1');
-                sessionStorage.setItem('aegisops_tour_run_id', run.id);
-              }
-              refreshAll();
-            }}
-            onStartReplayFixture={(fid) => openReplay(fid, true)}
-          />
-
-          <div className="console-grid" style={{ marginTop: 0 }}>
-            <section className="card" aria-label="CMDB Dependency and Blast-Radius Topology">
-              <div className="section-head">
-                <h2>CMDB Dependency &amp; Blast-Radius Topology</h2>
-                <span className="muted-pill">edge: source depends_on target</span>
-              </div>
-              <TopologyGraph
-                topology={topology}
-                selectedSlug={selectedAssetSlug}
-                onSelectAsset={(slug) => setSelectedAssetSlug(slug)}
-              />
-            </section>
-
-            <IncidentQueuePanel
-              user={user}
-              loading={queueLoading}
-              incidents={incidents}
-              tabCounts={tabCounts}
-              queueTab={queueTab}
-              queueSearch={queueSearch}
-              queueSort={queueSort}
-              hideTestRuns={hideTestRuns}
-              selectedIncidentId={selectedIncidentId}
-              onChangeTab={setQueueTab}
-              onChangeSearch={setQueueSearch}
-              onChangeSort={setQueueSort}
-              onToggleHideTestRuns={setHideTestRuns}
-              onSelectIncident={(id) => {
-                setSelectedIncidentId(id);
-                loadIncidentDetail(id);
-              }}
-              onRefresh={refreshAll}
-              onStartReplay={() => openReplay('fixture-traffic-spike-recovery', true)}
-            />
+      <main className="shell-main">
+        {sessionExpired && (
+          <div className="alert-banner alert-warn" role="status">
+            Your session expired. You are currently in Visitor Mode; sign in again for live operations.
           </div>
+        )}
+        {authError && (
+          <p className="error-text" role="alert">
+            {authError}
+          </p>
+        )}
+        {dataError && (
+          <div
+            className="alert-banner alert-err"
+            role="alert"
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
+          >
+            <span>API Error: {dataError}</span>
+            <Button variant="ghost" size="sm" onClick={refreshAll}>
+              Retry
+            </Button>
+          </div>
+        )}
 
-          <BusinessProbeCard
-            probes={probes}
-            canRunProbes={canOperate}
-            selectedIncidentId={selectedIncidentId}
-            activeDemoRunId={activeTourRun?.id || null}
-            onProbeCompleted={(sample) => setProbes((prev) => [sample, ...prev].slice(0, 25))}
+        {overview && !user && (
+          <VisitorOverviewBanner
+            overview={overview}
+            onStartGuidedReplay={() => openReplay('fixture-traffic-spike-recovery', true)}
           />
+        )}
 
-          {user && (
-            <IncidentDetail
-              detail={selectedDetail}
-              loading={detailLoading}
-              user={user}
-              technicalMode={technicalMode}
-              onRefresh={refreshAll}
-              onOpenPromptInspector={() => setMainNav('knowledge')}
-            />
-          )}
-        </div>
-      )}
-
-      {mainNav === 'knowledge' && (
-        <div className="detail-stack">
-          <PrivacyPromptDrawer
-            selectedIncidentId={selectedIncidentId}
-            canInspectPrompts={Boolean(user)}
+        {activeReplay && (
+          <ReplayController
+            replays={replays}
+            activeReplay={activeReplay}
+            frameIndex={replayFrameIdx}
+            onSelectReplay={(rid) => openReplay(rid, tourActive)}
+            onChangeFrame={setReplayFrameIdx}
+            onExitReplay={() => {
+              setActiveReplay(null);
+              setTourActive(false);
+              sessionStorage.removeItem('aegisops_tour_active');
+            }}
           />
-          <RunbookKnowledgePanel canUpload={canOperate} />
-        </div>
-      )}
+        )}
 
-      {mainNav === 'evidence' && (
-        <EngineeringEvidenceView
-          evidence={evidence}
-          error={evidenceError}
-          onRetry={loadEvidence}
-        />
-      )}
-
-      {showTotpModal && (
-        <TotpModal
-          onClose={() => setShowTotpModal(false)}
-          onVerified={async () => {
-            setShowTotpModal(false);
-            await refreshUser();
+        <GuidedTourBar
+          active={tourActive}
+          paused={tourPaused}
+          activeRun={activeTourRun}
+          isReplay={Boolean(activeReplay)}
+          replayNarration={
+            currentReplayFrame
+              ? {
+                  step: currentReplayFrame.lifecycle_step,
+                  headline: currentReplayFrame.headline,
+                  detail: currentReplayFrame.narration,
+                  focus_panel: currentReplayFrame.active_panel,
+                }
+              : null
+          }
+          onTogglePause={() => setTourPaused((p) => !p)}
+          onSkipStep={() => {
+            if (activeReplay && replayFrameIdx < activeReplay.frames.length - 1) {
+              setReplayFrameIdx((i) => i + 1);
+            }
+          }}
+          onExit={() => {
+            setTourActive(false);
+            sessionStorage.removeItem('aegisops_tour_active');
+          }}
+          onFocusPanel={(panel) => {
+            if (panel === 'runbooks' || panel === 'privacy') setMainNav('knowledge');
+            else setMainNav('console');
           }}
         />
-      )}
-    </main>
+
+        {mainNav === 'console' && (
+          <div className="detail-stack">
+            <MetricsDashboard
+              metrics={metrics}
+              scope={metricsScope}
+              baselineMinutesInput={baselineInput}
+              technicalMode={technicalMode}
+              onChangeScope={setMetricsScope}
+              onChangeBaselineInput={setBaselineInput}
+              onApplyBaseline={() => {
+                const num = Number(baselineInput);
+                setAppliedBaseline(baselineInput.trim() && Number.isFinite(num) && num >= 1 ? num : null);
+              }}
+            />
+
+            <ChaosLabPanel
+              scenarios={scenarios}
+              recentRuns={recentRuns}
+              readiness={readiness}
+              canOperate={canOperate}
+              onRefresh={refreshAll}
+              onRunLaunched={(run, startTour) => {
+                setActiveReplay(null);
+                setActiveTourRun(run);
+                if (startTour) {
+                  setTourActive(true);
+                  sessionStorage.setItem('aegisops_tour_active', '1');
+                  sessionStorage.setItem('aegisops_tour_run_id', run.id);
+                }
+                refreshAll();
+              }}
+              onStartReplayFixture={(fid) => openReplay(fid, true)}
+            />
+
+            <div className="console-grid" style={{ marginTop: 0 }}>
+              <section className="card" aria-label="CMDB Dependency and Blast-Radius Topology">
+                <div className="section-head">
+                  <h2>CMDB Dependency &amp; Blast-Radius Topology</h2>
+                  <span className="muted-pill">edge: source depends_on target</span>
+                </div>
+                <TopologyGraph
+                  topology={topology}
+                  selectedSlug={selectedAssetSlug}
+                  onSelectAsset={(slug) => setSelectedAssetSlug(slug)}
+                />
+              </section>
+
+              <IncidentQueuePanel
+                user={user}
+                loading={queueLoading}
+                incidents={incidents}
+                tabCounts={tabCounts}
+                queueTab={queueTab}
+                queueSearch={queueSearch}
+                queueSort={queueSort}
+                hideTestRuns={hideTestRuns}
+                selectedIncidentId={selectedIncidentId}
+                onChangeTab={setQueueTab}
+                onChangeSearch={setQueueSearch}
+                onChangeSort={setQueueSort}
+                onToggleHideTestRuns={setHideTestRuns}
+                onSelectIncident={(id) => {
+                  setSelectedIncidentId(id);
+                  loadIncidentDetail(id);
+                }}
+                onRefresh={refreshAll}
+                onStartReplay={() => openReplay('fixture-traffic-spike-recovery', true)}
+              />
+            </div>
+
+            <BusinessProbeCard
+              probes={probes}
+              canRunProbes={canOperate}
+              selectedIncidentId={selectedIncidentId}
+              activeDemoRunId={activeTourRun?.id || null}
+              onProbeCompleted={(sample) => setProbes((prev) => [sample, ...prev].slice(0, 25))}
+            />
+
+            {user && (
+              <IncidentDetail
+                detail={selectedDetail}
+                loading={detailLoading}
+                user={user}
+                technicalMode={technicalMode}
+                onRefresh={refreshAll}
+                onOpenPromptInspector={() => setMainNav('knowledge')}
+              />
+            )}
+          </div>
+        )}
+
+        {mainNav === 'knowledge' && (
+          <div className="detail-stack">
+            <PrivacyPromptDrawer
+              selectedIncidentId={selectedIncidentId}
+              canInspectPrompts={Boolean(user)}
+            />
+            <RunbookKnowledgePanel canUpload={canOperate} />
+          </div>
+        )}
+
+        {mainNav === 'evidence' && (
+          <EngineeringEvidenceView
+            evidence={evidence}
+            error={evidenceError}
+            onRetry={loadEvidence}
+          />
+        )}
+
+        {showTotpModal && (
+          <TotpModal
+            onClose={() => setShowTotpModal(false)}
+            onVerified={async () => {
+              setShowTotpModal(false);
+              await refreshUser();
+            }}
+          />
+        )}
+      </main>
+    </div>
   );
 }

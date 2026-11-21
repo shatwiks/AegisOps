@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ChevronDown, ChevronRight, Flame, Pause, Play, RotateCcw } from 'lucide-react';
 import { apiFetch } from '../lib/pkce';
 import type { DemoRun, ReadinessResponse, ScenarioSpec } from '../types';
 import { Button } from './ui/Button';
@@ -155,11 +156,16 @@ export function ChaosLabPanel({
             onClick={() => setShowReadinessDetails((v) => !v)}
             style={{ cursor: 'pointer' }}
           >
-            Readiness: {globalReady} {showReadinessDetails ? '▾' : '▸'}
+            {showReadinessDetails ? (
+              <ChevronDown size={13} aria-hidden="true" />
+            ) : (
+              <ChevronRight size={13} aria-hidden="true" />
+            )}
+            Readiness: {globalReady}
           </button>
-          <button
-            type="button"
-            className={`btn ${paused ? 'btn-danger' : 'btn-secondary'}`}
+          <Button
+            variant={paused ? 'danger' : 'secondary'}
+            size="sm"
             disabled={!canOperate}
             title={
               canOperate
@@ -168,17 +174,19 @@ export function ChaosLabPanel({
             }
             onClick={togglePauseAutomation}
           >
+            {paused ? <Play size={13} aria-hidden="true" /> : <Pause size={13} aria-hidden="true" />}
             {paused ? 'Automation PAUSED (Resume)' : 'Pause Automation'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             disabled={!canOperate}
             title={canOperate ? 'Preview and restore healthy demo replicas/images' : 'Operator sign-in required'}
             onClick={openResetPreview}
           >
+            <RotateCcw size={13} aria-hidden="true" />
             Restore Demo Baseline
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -221,7 +229,10 @@ export function ChaosLabPanel({
           const scReasons = readiness?.scenarios?.[sc.scenario_id]?.reasons || [];
           const blocked = scStatus === 'Blocked';
           return (
-            <div key={sc.scenario_id} className="scenario-card">
+            <div
+              key={sc.scenario_id}
+              className={`scenario-card ${sc.risk_tier === 'HIGH' ? 'scenario-card--high' : 'scenario-card--low'}`}
+            >
               <div className="row-top">
                 <span className={`sev-pill ${sc.risk_tier === 'HIGH' ? 'sev-P1' : 'sev-P3'}`}>
                   {sc.risk_tier} RISK {sc.requires_mfa ? '· MFA' : '· AUTO'}
@@ -245,6 +256,7 @@ export function ChaosLabPanel({
                       disabled={busyId !== null || blocked}
                       onClick={() => launchScenario(sc.scenario_id, true)}
                     >
+                      <Play size={12} aria-hidden="true" />
                       {busyId === sc.scenario_id ? 'Launching...' : 'Start Guided Demo'}
                     </button>
                     <button
@@ -253,6 +265,7 @@ export function ChaosLabPanel({
                       disabled={busyId !== null || blocked}
                       onClick={() => launchScenario(sc.scenario_id, false)}
                     >
+                      <Flame size={12} aria-hidden="true" />
                       1-Click Crash Only
                     </button>
                   </>
@@ -268,6 +281,7 @@ export function ChaosLabPanel({
                       )
                     }
                   >
+                    <Play size={12} aria-hidden="true" />
                     Watch Recorded Tour (Visitor)
                   </button>
                 )}

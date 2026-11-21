@@ -157,11 +157,10 @@ function TopologyInner({ topology, selectedSlug, onSelectAsset }: Props) {
   return (
     <div>
       <div className="header-controls" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
-        <div className="tab-group" role="tablist" aria-label="Topology display mode">
+        <div className="tab-group" role="group" aria-label="Topology display mode">
           <button
             type="button"
-            role="tab"
-            aria-selected={viewMode === 'graph'}
+            aria-pressed={viewMode === 'graph'}
             className={`tab-btn ${viewMode === 'graph' ? 'active' : ''}`}
             onClick={() => setViewMode('graph')}
           >
@@ -169,8 +168,7 @@ function TopologyInner({ topology, selectedSlug, onSelectAsset }: Props) {
           </button>
           <button
             type="button"
-            role="tab"
-            aria-selected={viewMode === 'table'}
+            aria-pressed={viewMode === 'table'}
             className={`tab-btn ${viewMode === 'table' ? 'active' : ''}`}
             onClick={() => setViewMode('table')}
           >
