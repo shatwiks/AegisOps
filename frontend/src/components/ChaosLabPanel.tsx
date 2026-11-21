@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import { ChevronDown, ChevronRight, Flame, Pause, Play, RotateCcw } from 'lucide-react';
 import { apiFetch } from '../lib/pkce';
 import type { DemoRun, ReadinessResponse, ScenarioSpec } from '../types';
+import { Button } from './ui/Button';
+import { Modal } from './ui/Modal';
 
 interface Props {
   scenarios: ScenarioSpec[];
@@ -148,15 +151,21 @@ export function ChaosLabPanel({
         <div className="header-controls">
           <button
             type="button"
+            aria-expanded={showReadinessDetails}
             className={`badge ${globalReady === 'Ready' ? 'badge-ok' : 'badge-warn'}`}
             onClick={() => setShowReadinessDetails((v) => !v)}
             style={{ cursor: 'pointer' }}
           >
-            Readiness: {globalReady} {showReadinessDetails ? '▾' : '▸'}
+            {showReadinessDetails ? (
+              <ChevronDown size={13} aria-hidden="true" />
+            ) : (
+              <ChevronRight size={13} aria-hidden="true" />
+            )}
+            Readiness: {globalReady}
           </button>
-          <button
-            type="button"
-            className={`btn ${paused ? 'btn-danger' : 'btn-secondary'}`}
+          <Button
+            variant={paused ? 'danger' : 'secondary'}
+            size="sm"
             disabled={!canOperate}
             title={
               canOperate
@@ -165,17 +174,19 @@ export function ChaosLabPanel({
             }
             onClick={togglePauseAutomation}
           >
+            {paused ? <Play size={13} aria-hidden="true" /> : <Pause size={13} aria-hidden="true" />}
             {paused ? 'Automation PAUSED (Resume)' : 'Pause Automation'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             disabled={!canOperate}
             title={canOperate ? 'Preview and restore healthy demo replicas/images' : 'Operator sign-in required'}
             onClick={openResetPreview}
           >
+            <RotateCcw size={13} aria-hidden="true" />
             Restore Demo Baseline
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -218,7 +229,10 @@ export function ChaosLabPanel({
           const scReasons = readiness?.scenarios?.[sc.scenario_id]?.reasons || [];
           const blocked = scStatus === 'Blocked';
           return (
-            <div key={sc.scenario_id} className="scenario-card">
+            <div
+              key={sc.scenario_id}
+              className={`scenario-card ${sc.risk_tier === 'HIGH' ? 'scenario-card--high' : 'scenario-card--low'}`}
+            >
               <div className="row-top">
                 <span className={`sev-pill ${sc.risk_tier === 'HIGH' ? 'sev-P1' : 'sev-P3'}`}>
                   {sc.risk_tier} RISK {sc.requires_mfa ? '· MFA' : '· AUTO'}
@@ -242,6 +256,7 @@ export function ChaosLabPanel({
                       disabled={busyId !== null || blocked}
                       onClick={() => launchScenario(sc.scenario_id, true)}
                     >
+                      <Play size={12} aria-hidden="true" />
                       {busyId === sc.scenario_id ? 'Launching...' : 'Start Guided Demo'}
                     </button>
                     <button
@@ -250,6 +265,7 @@ export function ChaosLabPanel({
                       disabled={busyId !== null || blocked}
                       onClick={() => launchScenario(sc.scenario_id, false)}
                     >
+                      <Flame size={12} aria-hidden="true" />
                       1-Click Crash Only
                     </button>
                   </>
@@ -265,6 +281,7 @@ export function ChaosLabPanel({
                       )
                     }
                   >
+                    <Play size={12} aria-hidden="true" />
                     Watch Recorded Tour (Visitor)
                   </button>
                 )}
@@ -275,74 +292,71 @@ export function ChaosLabPanel({
       </div>
 
       {resetPreview && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Restore Demo Baseline Preview">
-          <div className="modal-card" style={{ maxWidth: 680 }}>
-            <div className="modal-header">
-              <h3>Restore Demo Baseline — Concrete Preview</h3>
-              <button type="button" className="btn btn-ghost" onClick={() => setResetPreview(null)}>
-                Close
-              </button>
-            </div>
-            <p className="muted" style={{ fontSize: '0.84rem' }}>
-              Scoped strictly to demo workloads in <code>{resetPreview.scope_namespace}</code> on{' '}
-              <code>{resetPreview.cluster_context}</code>. Control-plane databases, audit history, and uploaded runbooks are preserved.
-            </p>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Deployment</th>
-                  <th>Planned K8s Diff</th>
-                  <th>Fault Reset</th>
+        <Modal
+          titleId="baseline-reset-title"
+          title="Restore Demo Baseline — Concrete Preview"
+          wide
+          onClose={() => setResetPreview(null)}
+        >
+          <p className="muted" style={{ fontSize: '0.84rem' }}>
+            Scoped strictly to demo workloads in <code>{resetPreview.scope_namespace}</code> on{' '}
+            <code>{resetPreview.cluster_context}</code>. Control-plane databases, audit history, and uploaded runbooks are preserved.
+          </p>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Deployment</th>
+                <th>Planned K8s Diff</th>
+                <th>Fault Reset</th>
+              </tr>
+            </thead>
+            <tbody>
+              {resetPreview.resources.map((r) => (
+                <tr key={r.deployment}>
+                  <td><code>{r.deployment}</code></td>
+                  <td>
+                    {r.error
+                      ? r.error
+                      : r.needs_k8s_patch
+                        ? JSON.stringify(r.diffs)
+                        : 'Already matches baseline'}
+                  </td>
+                  <td>{r.will_reset_fault_flags ? 'Clear simulated faults' : 'None needed'}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {resetPreview.resources.map((r) => (
-                  <tr key={r.deployment}>
-                    <td><code>{r.deployment}</code></td>
-                    <td>
-                      {r.error
-                        ? r.error
-                        : r.needs_k8s_patch
-                          ? JSON.stringify(r.diffs)
-                          : 'Already matches baseline'}
-                    </td>
-                    <td>{r.will_reset_fault_flags ? 'Clear simulated faults' : 'None needed'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              ))}
+            </tbody>
+          </table>
 
-            {hasActiveWork && (
-              <div className="alert-banner alert-warn" style={{ marginTop: '0.75rem' }}>
-                Active demo runs/incidents detected ({resetPreview.active_demo_runs_count} runs,{' '}
-                {resetPreview.active_incidents_to_close_count} open incidents). Closing them via reset marks recovery as{' '}
-                <code>manual_reset_assisted</code> rather than autonomous success.
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
-                  <input
-                    type="checkbox"
-                    checked={forceActive}
-                    onChange={(e) => setForceActive(e.target.checked)}
-                  />
-                  Confirm override &amp; close active incidents as <code>manual_reset_assisted</code>
-                </label>
-              </div>
-            )}
-
-            <div className="header-controls" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
-              <button type="button" className="btn btn-ghost" onClick={() => setResetPreview(null)}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={resetBusy || (hasActiveWork && !forceActive)}
-                onClick={confirmResetExecute}
-              >
-                {resetBusy ? 'Restoring...' : 'Confirm Restore Baseline'}
-              </button>
+          {hasActiveWork && (
+            <div className="alert-banner alert-warn" style={{ marginTop: '0.75rem' }}>
+              Active demo runs/incidents detected ({resetPreview.active_demo_runs_count} runs,{' '}
+              {resetPreview.active_incidents_to_close_count} open incidents). Closing them via reset marks recovery as{' '}
+              <code>manual_reset_assisted</code> rather than autonomous success.
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                <input
+                  type="checkbox"
+                  checked={forceActive}
+                  onChange={(e) => setForceActive(e.target.checked)}
+                />
+                Confirm override &amp; close active incidents as <code>manual_reset_assisted</code>
+              </label>
             </div>
+          )}
+
+          <div className="header-controls" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
+            <Button variant="ghost" onClick={() => setResetPreview(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              loading={resetBusy}
+              disabled={resetBusy || (hasActiveWork && !forceActive)}
+              onClick={confirmResetExecute}
+            >
+              {resetBusy ? 'Restoring...' : 'Confirm Restore Baseline'}
+            </Button>
           </div>
-        </div>
+        </Modal>
       )}
     </section>
   );

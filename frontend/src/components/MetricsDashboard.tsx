@@ -1,4 +1,7 @@
+import { HeartPulse, Lock, ShieldCheck, Timer, Zap } from 'lucide-react';
 import type { MetricsSummaryResponse, TimingSummary } from '../types';
+import { Button } from './ui/Button';
+import { Skeleton } from './ui/Skeleton';
 
 interface Props {
   metrics: MetricsSummaryResponse | null;
@@ -12,8 +15,11 @@ interface Props {
 
 function TimingCard({ label, data }: { label: string; data: TimingSummary }) {
   return (
-    <div className="metric-tile">
-      <div className="metric-label">{label}</div>
+    <div className="hairline-cell">
+      <div className="metric-head">
+        <span className="metric-label">{label}</span>
+        <Timer size={13} aria-hidden="true" />
+      </div>
       <div className="metric-value">
         {data.p50 !== null ? `${data.p50}s` : 'N/A'}
       </div>
@@ -24,6 +30,7 @@ function TimingCard({ label, data }: { label: string; data: TimingSummary }) {
   );
 }
 
+/** Hairline-divided KPI & timing strip with JetBrains Mono tabular numerals. */
 export function MetricsDashboard({
   metrics,
   scope,
@@ -34,7 +41,21 @@ export function MetricsDashboard({
   onApplyBaseline,
 }: Props) {
   if (!metrics) {
-    return <div className="card">Loading measured operational metrics...</div>;
+    return (
+      <section className="card" aria-label="Measured Value & Operational Metrics">
+        <div className="section-head">
+          <Skeleton height={24} width={280} />
+          <Skeleton height={30} width={180} />
+        </div>
+        <div className="hairline-grid-5">
+          <Skeleton height={86} />
+          <Skeleton height={86} />
+          <Skeleton height={86} />
+          <Skeleton height={86} />
+          <Skeleton height={86} />
+        </div>
+      </section>
+    );
   }
 
   const bv = metrics.business_value;
@@ -45,7 +66,7 @@ export function MetricsDashboard({
       <div className="section-head">
         <div>
           <h3>Measured Value &amp; Operational Timings</h3>
-          <span className="muted" style={{ fontSize: '0.8rem' }}>
+          <span className="mono-small">
             Total in scope: {metrics.total_incidents} · Sensitive identifiers redacted: {metrics.total_phi_pii_redactions}
           </span>
         </div>
@@ -63,33 +84,50 @@ export function MetricsDashboard({
       </div>
 
       {bv && (
-        <div className="metrics-grid" style={{ marginBottom: '0.75rem' }}>
-          <div className="metric-tile tile-highlight">
-            <div className="metric-label">Identifiers Redacted (Boundary)</div>
+        <div className="hairline-grid-5" style={{ marginBottom: '0.75rem' }}>
+          <div className="hairline-cell hairline-cell--highlight">
+            <div className="metric-head">
+              <span className="metric-label">Identifiers Redacted (Boundary)</span>
+              <ShieldCheck size={14} aria-hidden="true" />
+            </div>
             <div className="metric-value">{bv.sensitive_identifiers_redacted}</div>
             <div className="metric-sub">Stripped tokens (not distinct patients)</div>
           </div>
-          <div className="metric-tile">
-            <div className="metric-label">Autonomously Contained</div>
+
+          <div className="hairline-cell">
+            <div className="metric-head">
+              <span className="metric-label">Autonomously Contained</span>
+              <Zap size={14} aria-hidden="true" />
+            </div>
             <div className="metric-value">{bv.incidents_contained_by_automation}</div>
             <div className="metric-sub">Resolved via verified rollout</div>
           </div>
-          <div className="metric-tile">
-            <div className="metric-label">MFA-Gated High-Risk Actions</div>
+
+          <div className="hairline-cell">
+            <div className="metric-head">
+              <span className="metric-label">MFA-Gated High-Risk Actions</span>
+              <Lock size={14} aria-hidden="true" />
+            </div>
             <div className="metric-value">{bv.high_risk_actions_gated_by_mfa}</div>
             <div className="metric-sub">Action-bound TOTP enforcement</div>
           </div>
-          <div className="metric-tile">
-            <div className="metric-label">Business Probe Recoveries</div>
-            <div className="metric-value">
-              {bv.business_probe_recoveries_verified} PASS
+
+          <div className="hairline-cell">
+            <div className="metric-head">
+              <span className="metric-label">Business Probe Recoveries</span>
+              <HeartPulse size={14} aria-hidden="true" />
             </div>
+            <div className="metric-value">{bv.business_probe_recoveries_verified} PASS</div>
             <div className="metric-sub">
               {bv.business_probe_failures_observed} FAIL/DEGRADED observed
             </div>
           </div>
-          <div className="metric-tile">
-            <div className="metric-label">Manual Baseline Comparison</div>
+
+          <div className="hairline-cell">
+            <div className="metric-head">
+              <span className="metric-label">Manual Baseline Comparison</span>
+              <Timer size={14} aria-hidden="true" />
+            </div>
             <div className="metric-value" style={{ fontSize: '1.05rem' }}>
               {baseline?.configured && baseline.estimated_engineer_minutes_saved !== null
                 ? `~${baseline.estimated_engineer_minutes_saved} min saved`
@@ -116,21 +154,21 @@ export function MetricsDashboard({
             onChange={(e) => onChangeBaselineInput(e.target.value)}
             style={{ width: 95 }}
           />
-          <button type="button" className="btn btn-secondary" onClick={onApplyBaseline}>
+          <Button variant="secondary" size="sm" onClick={onApplyBaseline}>
             Apply Baseline Assumption
-          </button>
+          </Button>
           {baseline?.method && <span className="muted" style={{ fontSize: '0.75rem' }}>{baseline.method}</span>}
         </div>
       )}
 
-      <div className="metrics-grid">
+      <div className="hairline-grid-5">
         <TimingCard label="MTTD (p50)" data={metrics.timings_seconds.mttd} />
         <TimingCard label="Triage Latency (p50)" data={metrics.timings_seconds.triage_latency} />
         <TimingCard label="Action Latency (p50)" data={metrics.timings_seconds.action_latency} />
         <TimingCard label="60s Verification Window" data={metrics.timings_seconds.verification_window} />
         <TimingCard label="End-to-End MTTR (p50)" data={metrics.timings_seconds.mttr_end_to_end} />
       </div>
-      <p className="muted" style={{ marginTop: '0.75rem', fontSize: '0.78rem' }}>
+      <p className="mono-small" style={{ marginTop: '0.75rem', marginBottom: 0 }}>
         {metrics.measurement_note} (MTTD unavailable samples: {metrics.mttd_unavailable_count}).
       </p>
     </section>
