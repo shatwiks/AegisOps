@@ -91,10 +91,18 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
 
     @app.middleware("http")
     async def correlation_id_middleware(request: Request, call_next: Any) -> Any:
-        correlation_id = request.headers.get("X-Correlation-ID") or str(uuid.uuid4())
+        raw_cid = request.headers.get("X-Correlation-ID", "").strip()
+        if raw_cid and len(raw_cid) <= 128 and all(c.isalnum() or c in "-_." for c in raw_cid):
+            correlation_id = raw_cid
+        else:
+            correlation_id = str(uuid.uuid4())
         request.state.correlation_id = correlation_id
         response = await call_next(request)
         response.headers["X-Correlation-ID"] = correlation_id
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         if request.url.path != "/metrics":
             API_REQUESTS_TOTAL.labels(method=request.method, status=str(response.status_code)).inc()
         return response

@@ -1,5 +1,19 @@
 # Change Report: Social Preview PNG for OpenGraph & LinkedIn
 
+## 2026-11-22 07:10 IST — Pre-LinkedIn Production Security Hardening
+
+### Objective
+Harden public repository, API middleware, authentication, CORS, error handling, and CI workflow permissions prior to public LinkedIn sharing.
+
+### Files Modified & Created
+- `backend/app/main.py` — Added HTTP security response headers (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`) and validated inbound `X-Correlation-ID` charset/length (`<= 128` chars) to prevent header injection and log forging.
+- `SECURITY.md` — Added responsible vulnerability disclosure policy.
+
+### Verification Results
+- `python -m py_compile backend/app/main.py` (PASS).
+
+---
+
 ## Objective & Context
 - **Timestamp:** 2026-11-21T16:59:00+05:30
 - **Objective:** Add high-resolution 1280x640 OpenGraph Social Preview PNG (`docs/assets/social-preview.png`) to solve missing thumbnail issues on LinkedIn and GitHub repository cards (which require raster PNG/JPG for link unfurling).
