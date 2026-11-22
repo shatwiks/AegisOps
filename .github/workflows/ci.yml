@@ -52,7 +52,7 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}/backend
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python 3.12 via uv
         uses: astral-sh/setup-uv@v5
